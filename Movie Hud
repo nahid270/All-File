@@ -5,7 +5,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, Res
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from functools import wraps
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, quote
 
 # --- Environment Variables ---
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://mewayo8672:mewayo8672@cluster0.ozhvczp.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
@@ -59,11 +59,12 @@ def inject_globals():
     return dict(
         website_name=WEBSITE_NAME,
         ad_settings=ad_settings or {},
-        predefined_categories=PREDEFINED_CATEGORIES
+        predefined_categories=PREDEFINED_CATEGORIES,
+        quote=quote 
     )
 
 # =========================================================================================
-# === [START] HTML TEMPLATES (Final Corrected Version) ==================================
+# === [START] HTML TEMPLATES ============================================================
 # =========================================================================================
 index_html = """
 <!DOCTYPE html>
@@ -74,6 +75,7 @@ index_html = """
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+{{ ad_settings.ad_header | safe }}
 <style>
   :root {--primary-color: #E50914;--bg-color: #0c0c0c;--card-bg: #1a1a1a;--text-light: #ffffff;--text-dark: #a0a0a0;--nav-height: 70px;}
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -123,12 +125,13 @@ index_html = """
   .full-page-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px 20px; }
   .full-page-grid .movie-poster { width: 100%; }
   .main-footer { background-color: #111; padding: 30px 40px; text-align: center; color: var(--text-dark); margin-top: 50px; }
-  .main-footer a { color: var(--primary-color); }
+  .ad-container { margin: 40px 0; display: flex; justify-content: center; align-items: center; }
   @media (max-width: 992px) {.nav-links, .search-form { display: none; } .menu-toggle { display: block; } .hero-content { max-width: 80%; } .hero-title { font-size: 2.5rem; } }
   @media (max-width: 768px) {.container, .full-page-grid-container { padding: 0 20px; } .full-page-grid-container{padding-top:100px;padding-bottom:40px;} .logo { font-size: 1.5rem; } .hero-slider { height: 60vh; } .hero-content { padding: 0 20px; max-width: 100%; text-align: center; } .hero-meta { justify-content: center; } .hero-overview { display: none; } .category-title { font-size: 1.4rem; } .movie-poster { width: 160px; } .full-page-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }
 </style>
 </head>
 <body>
+{{ ad_settings.ad_body_top | safe }}
 <header class="main-header">
     <div class="container header-content">
         <a href="{{ url_for('home') }}" class="logo">{{ website_name }}</a>
@@ -200,6 +203,7 @@ index_html = """
     {{ render_carousel_section('Trending Now', categorized_content['Trending'], 'Trending') }}
     {{ render_carousel_section('Latest Movies', latest_movies, 'Latest Movie') }}
     {{ render_carousel_section('Latest Series', latest_series, 'Latest Series') }}
+    {% if ad_settings.ad_list_page %}<div class="ad-container">{{ ad_settings.ad_list_page | safe }}</div>{% endif %}
     {% for cat_name, movies_list in categorized_content.items() %}
         {% if cat_name != 'Trending' %}
              {{ render_carousel_section(cat_name, movies_list, cat_name) }}
@@ -218,6 +222,7 @@ index_html = """
     new Swiper('.hero-slider', { loop: true, autoplay: { delay: 5000 }, pagination: { el: '.swiper-pagination', clickable: true }, });
     new Swiper('.movie-carousel', { slidesPerView: 'auto', spaceBetween: 20, navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev', }, breakpoints: { 320: { spaceBetween: 15 }, 768: { spaceBetween: 20 }, } });
 </script>
+{{ ad_settings.ad_footer | safe }}
 </body></html>
 """
 detail_html = """
@@ -228,6 +233,7 @@ detail_html = """
 <title>{{ movie.title if movie else "Content Not Found" }} - {{ website_name }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+{{ ad_settings.ad_header | safe }}
 <style>
   :root {--primary-color: #E50914; --watch-color: #007bff; --bg-color: #0c0c0c;--card-bg: #1a1a1a;--text-light: #ffffff;--text-dark: #a0a0a0;}
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -278,6 +284,7 @@ detail_html = """
 </style>
 </head>
 <body>
+{{ ad_settings.ad_body_top | safe }}
 {% if movie %}
 <div class="detail-hero">
     <img src="{{ movie.backdrop or movie.poster }}" class="hero-background" alt="">
@@ -307,7 +314,7 @@ detail_html = """
         </nav>
         <div class="tabs-content">
             <div class="tab-pane active" id="downloads">
-                {% if ad_settings.ad_code_1 %}<div class="ad-container">{{ ad_settings.ad_code_1 | safe }}</div>{% endif %}
+                {% if ad_settings.ad_detail_page %}<div class="ad-container">{{ ad_settings.ad_detail_page | safe }}</div>{% endif %}
                 {% if movie.type == 'movie' %}
                     {% if movie.links %}
                     <div class="link-group">
@@ -316,8 +323,8 @@ detail_html = """
                         <div class="quality-group">
                             <h4>{{ link_item.quality }}</h4>
                             <div class="link-buttons">
-                                {% if link_item.watch_url %}<a href="{{ link_item.watch_url }}" target="_blank" class="action-btn btn-watch"><i class="fas fa-play"></i> Watch Now</a>{% endif %}
-                                {% if link_item.download_url %}<a href="{{ link_item.download_url }}" target="_blank" class="action-btn btn-download"><i class="fas fa-download"></i> Download</a>{% endif %}
+                                {% if link_item.watch_url %}<a href="{{ url_for('wait_page', target=quote(link_item.watch_url)) }}" class="action-btn btn-watch"><i class="fas fa-play"></i> Watch Now</a>{% endif %}
+                                {% if link_item.download_url %}<a href="{{ url_for('wait_page', target=quote(link_item.download_url)) }}" class="action-btn btn-download"><i class="fas fa-download"></i> Download</a>{% endif %}
                             </div>
                         </div>
                         {% endfor %}
@@ -334,7 +341,7 @@ detail_html = """
                     {% for ep in movie.episodes | selectattr('season', 'equalto', season_num) | sort(attribute='episode_number') %}
                     <div class="episode-item">
                         <span class="episode-name"><i class="fas fa-play-circle"></i> Episode {{ ep.episode_number }} {% if ep.title %}- {{ep.title}}{% endif %}</span>
-                        {% if ep.watch_link %}<a href="{{ ep.watch_link }}" target="_blank" class="action-btn btn-download">Download / Watch</a>{% endif %}
+                        {% if ep.watch_link %}<a href="{{ url_for('wait_page', target=quote(ep.watch_link)) }}" class="action-btn btn-download">Download / Watch</a>{% endif %}
                     </div>
                     {% endfor %}
                 </div></div>
@@ -354,7 +361,63 @@ detail_html = """
         document.getElementById(tabId).classList.add('active');
     }); });
 </script>
+{{ ad_settings.ad_footer | safe }}
 </body></html>
+"""
+wait_page_html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generating Link... - {{ website_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
+    {{ ad_settings.ad_header | safe }}
+    <style>
+        :root {--primary-color: #E50914; --bg-color: #0c0c0c; --text-light: #ffffff; --text-dark: #a0a0a0;}
+        body { font-family: 'Poppins', sans-serif; background-color: var(--bg-color); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; text-align: center; margin: 0; padding: 20px;}
+        .wait-container { background-color: #1a1a1a; padding: 40px; border-radius: 12px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h1 { font-size: 1.8rem; color: var(--primary-color); margin-bottom: 20px; }
+        p { color: var(--text-dark); margin-bottom: 30px; font-size: 1rem; }
+        .timer { font-size: 2.5rem; font-weight: 700; color: var(--text-light); margin-bottom: 30px; }
+        .get-link-btn { display: inline-block; text-decoration: none; color: white; font-weight: 600; cursor: pointer; border: none; padding: 12px 30px; border-radius: 50px; font-size: 1rem; background-color: #555; transition: background-color 0.2s; }
+        .get-link-btn.ready { background-color: var(--primary-color); }
+        .ad-container { margin: 30px 0; min-height: 50px; display: flex; justify-content: center; align-items: center; }
+    </style>
+</head>
+<body>
+    {{ ad_settings.ad_body_top | safe }}
+    <div class="wait-container">
+        <h1>Please Wait</h1>
+        <p>Your download link is being generated. You will be redirected automatically.</p>
+        <div class="timer">Please wait <span id="countdown">5</span> seconds...</div>
+        <a id="get-link-btn" class="get-link-btn" href="#">Generating Link...</a>
+        {% if ad_settings.ad_wait_page %}<div class="ad-container">{{ ad_settings.ad_wait_page | safe }}</div>{% endif %}
+    </div>
+    <script>
+        (function() {
+            let timeLeft = 5;
+            const countdownElement = document.getElementById('countdown');
+            const linkButton = document.getElementById('get-link-btn');
+            const targetUrl = "{{ target_url | safe }}";
+
+            const timer = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    countdownElement.parentElement.textContent = "Your link is ready!";
+                    linkButton.classList.add('ready');
+                    linkButton.textContent = 'Click Here to Proceed';
+                    linkButton.href = targetUrl;
+                    window.location.href = targetUrl;
+                } else {
+                    countdownElement.textContent = timeLeft;
+                }
+                timeLeft--;
+            }, 1000);
+        })();
+    </script>
+    {{ ad_settings.ad_footer | safe }}
+</body>
+</html>
 """
 admin_html = """
 <!DOCTYPE html>
@@ -407,9 +470,24 @@ admin_html = """
 <body>
 <div class="admin-container">
     <header class="admin-header"><h1>Admin Panel</h1><a href="{{ url_for('home') }}" target="_blank">View Site</a></header>
+    
     <h2><i class="fas fa-bullhorn"></i> Advertisement Management</h2>
-    <form method="post"><input type="hidden" name="form_action" value="update_ads"><fieldset><legend>Ad Placement 1 (Details Page)</legend><div class="form-group"><label for="ad_code_1">Ad Code (HTML/JS):</label><textarea id="ad_code_1" name="ad_code_1" rows="6">{{ ad_settings.ad_code_1 or '' }}</textarea></div></fieldset><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Ad Settings</button></form>
+    <form method="post">
+        <input type="hidden" name="form_action" value="update_ads">
+        <fieldset><legend>Global Ad Codes (Ezoic/Adsterra)</legend>
+            <div class="form-group"><label>Header Script (in &lt;head&gt;):</label><textarea name="ad_header" rows="4" placeholder="Adsterra/Ezoic verification script">{{ ad_settings.ad_header or '' }}</textarea></div>
+            <div class="form-group"><label>Body Top Script (after &lt;body&gt;):</label><textarea name="ad_body_top" rows="4" placeholder="Pop-up or other body scripts">{{ ad_settings.ad_body_top or '' }}</textarea></div>
+            <div class="form-group"><label>Footer Script (before &lt;/body&gt;):</label><textarea name="ad_footer" rows="4">{{ ad_settings.ad_footer or '' }}</textarea></div>
+        </fieldset>
+        <fieldset><legend>In-Page Ad Units</legend>
+             <div class="form-group"><label>Homepage Ad (Between Sections):</label><textarea name="ad_list_page" rows="4">{{ ad_settings.ad_list_page or '' }}</textarea></div>
+             <div class="form-group"><label>Details Page Ad (Below Title):</label><textarea name="ad_detail_page" rows="4">{{ ad_settings.ad_detail_page or '' }}</textarea></div>
+             <div class="form-group"><label>Wait Page Ad (Countdown Page):</label><textarea name="ad_wait_page" rows="4">{{ ad_settings.ad_wait_page or '' }}</textarea></div>
+        </fieldset>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Ad Settings</button>
+    </form>
     <hr>
+    
     <h2><i class="fas fa-plus-circle"></i> Add New Content</h2>
     <fieldset><legend>Automatic Method (Search TMDB)</legend><div class="form-group"><div class="tmdb-fetcher"><input type="text" id="tmdb_search_query" placeholder="e.g., Avengers Endgame"><button type="button" id="tmdb_search_btn" class="btn btn-primary" onclick="searchTmdb()">Search</button></div></div></fieldset>
     <form method="post">
@@ -620,7 +698,18 @@ def movies_by_category(cat_name):
     content_list = list(movies.find(query).sort('_id', -1))
     return render_template_string(index_html, movies=content_list, query=title, is_full_page_list=True)
 
-# --- Admin Routes ---
+@app.route('/wait')
+def wait_page():
+    encoded_target_url = request.args.get('target')
+    if not encoded_target_url:
+        return redirect(url_for('home'))
+    
+    # *** THIS IS THE FIX ***
+    # Decode the URL before passing it to the template
+    decoded_target_url = unquote(encoded_target_url)
+    
+    return render_template_string(wait_page_html, target_url=decoded_target_url)
+
 @app.route('/admin', methods=["GET", "POST"])
 @requires_auth
 def admin():
@@ -628,7 +717,15 @@ def admin():
         form_action = request.form.get("form_action")
 
         if form_action == "update_ads":
-            settings.update_one({"_id": "ad_config"}, {"$set": {"ad_code_1": request.form.get("ad_code_1")}}, upsert=True)
+            ad_settings = {
+                "ad_header": request.form.get("ad_header"),
+                "ad_body_top": request.form.get("ad_body_top"),
+                "ad_footer": request.form.get("ad_footer"),
+                "ad_list_page": request.form.get("ad_list_page"),
+                "ad_detail_page": request.form.get("ad_detail_page"),
+                "ad_wait_page": request.form.get("ad_wait_page"),
+            }
+            settings.update_one({"_id": "ad_config"}, {"$set": ad_settings}, upsert=True)
         
         elif form_action == "add_content":
             content_type = request.form.get("content_type", "movie")
