@@ -12,7 +12,7 @@ MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://mewayo8672:mewayo8672@clu
 TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "7dc544d9253bccc3cfecc1c677f69819")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "Nahid")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "270")
-WEBSITE_NAME = os.environ.get("WEBSITE_NAME", "MovieZonehub")
+WEBSITE_NAME = os.environ.get("WEBSITE_NAME", "FreeMovieHub")
 
 # --- Validate Environment Variables ---
 if not all([MONGO_URI, TMDB_API_KEY, ADMIN_USERNAME, ADMIN_PASSWORD]):
@@ -72,6 +72,11 @@ index_html = """
 <head>
 <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>{{ website_name }} - Your Entertainment Hub</title>
+<!-- FAVICON AND META TAGS ADDED HERE -->
+<link rel="icon" href="https://img.icons8.com/fluency/48/cinema-.png" type="image/png"> <!-- আপনার নিজের আইকনের লিঙ্ক এখানে দিন -->
+<meta name="description" content="Watch and download the latest movies and series on {{ website_name }}. Your ultimate entertainment hub.">
+<meta name="keywords" content="movies, series, download, watch online, {{ website_name }}, bengali movies, hindi movies, english movies">
+
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
@@ -96,18 +101,16 @@ index_html = """
   .search-input:focus { outline: none; }
   .search-btn { background: var(--primary-color); border: none; color: var(--text-light); border-radius: 50%; width: 30px; height: 30px; cursor: pointer; display:grid; place-items:center; }
   .menu-toggle { display: none; font-size: 1.5rem; cursor: pointer; }
-  .hero-slider { height: 70vh; width: 100%; margin-top: var(--nav-height); }
-  .hero-slide { position: relative; display: flex; align-items: center; }
-  .hero-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
-  .hero-slide::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(90deg, var(--bg-color) 0%, rgba(12,12,12,0.8) 30%, rgba(12,12,12,0.2) 60%, transparent 100%), linear-gradient(to top, var(--bg-color) 0%, transparent 20%); }
-  .hero-content { position: relative; z-index: 2; padding: 0 40px; max-width: 50%; }
-  .hero-title { font-size: 3.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.1; }
-  .hero-meta { display: flex; align-items: center; gap: 15px; margin-bottom: 1rem; color: var(--text-dark); }
-  .hero-meta .rating { color: #f5c518; font-weight: 600; }
-  .hero-overview { font-size: 1rem; color: var(--text-dark); line-height: 1.6; margin-bottom: 2rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  .hero-btn { background-color: var(--primary-color); padding: 12px 28px; border-radius: 50px; font-weight: 600; transition: transform 0.2s ease; }
-  .hero-btn:hover { transform: scale(1.05); }
-  .swiper-pagination-bullet-active { background: var(--primary-color); }
+  .hero-slider {width: 100%;margin-top: var(--nav-height);aspect-ratio: 16 / 9; max-height: 600px; }
+  .hero-slide {position: relative;display: flex;align-items: flex-end;justify-content: flex-start;border-radius: 12px;overflow: hidden;}
+  .hero-bg-img {position: absolute;top: 0;left: 0;width: 100%;height: 100%;object-fit: cover;object-position: center;}
+  .hero-slide::before {content: '';position: absolute;top: 0;left: 0;width: 100%;height: 100%;background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 25%, transparent 60%);}
+  .hero-content {position: relative;z-index: 2;padding: 20px 40px;width: 100%;}
+  .hero-title {font-size: 2.2rem;font-weight: 600;line-height: 1.2;margin: 0;}
+  .hero-meta {font-size: 0.9rem;color: var(--text-dark);margin-top: 5px;}
+  .slide-type-tag {position: absolute;top: 20px;right: 20px;background-color: var(--primary-color);color: white;padding: 5px 12px;border-radius: 5px;font-size: 0.8rem;font-weight: 600;z-index: 3;text-transform: uppercase;}
+  .swiper-pagination-bullet {background: rgba(255,255,255,0.5);}
+  .swiper-pagination-bullet-active {background: var(--primary-color);width: 20px;border-radius: 5px;}
   .category-section { margin: 50px 0; }
   .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   .category-title { font-size: 1.8rem; font-weight: 600; }
@@ -126,8 +129,14 @@ index_html = """
   .full-page-grid .movie-poster { width: 100%; }
   .main-footer { background-color: #111; padding: 30px 40px; text-align: center; color: var(--text-dark); margin-top: 50px; }
   .ad-container { margin: 40px 0; display: flex; justify-content: center; align-items: center; }
-  @media (max-width: 992px) {.nav-links, .search-form { display: none; } .menu-toggle { display: block; } .hero-content { max-width: 80%; } .hero-title { font-size: 2.5rem; } }
-  @media (max-width: 768px) {.container, .full-page-grid-container { padding: 0 20px; } .full-page-grid-container{padding-top:100px;padding-bottom:40px;} .logo { font-size: 1.5rem; } .hero-slider { height: 60vh; } .hero-content { padding: 0 20px; max-width: 100%; text-align: center; } .hero-meta { justify-content: center; } .hero-overview { display: none; } .category-title { font-size: 1.4rem; } .movie-poster { width: 160px; } .full-page-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } }
+  @media (max-width: 992px) {.nav-links, .search-form { display: none; } .menu-toggle { display: block; } }
+  @media (max-width: 768px) {
+    .container, .full-page-grid-container { padding: 0 20px; } .full-page-grid-container{padding-top:100px;padding-bottom:40px;} .logo { font-size: 1.5rem; } 
+    .hero-slider { margin-top: calc(var(--nav-height) + 10px); aspect-ratio: 16 / 10; }
+    .hero-content { padding: 15px 20px; } .hero-title { font-size: 1.5rem; } .hero-meta { font-size: 0.8rem; }
+    .slide-type-tag { font-size: 0.7rem; padding: 4px 10px; top: 15px; right: 15px; }
+    .category-title { font-size: 1.4rem; } .movie-poster { width: 160px; } .full-page-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); } 
+  }
 </style>
 </head>
 <body>
@@ -163,25 +172,23 @@ index_html = """
         {% else %}<div class="full-page-grid">{% for m in movies %}{{ render_movie_card(m) }}{% endfor %}</div>{% endif %}
     </div>
   {% else %}
-    <div class="swiper hero-slider">
-        <div class="swiper-wrapper">
-        {% for movie in recently_added %}{% if movie.backdrop %}
-            <div class="swiper-slide hero-slide">
-                <img src="{{ movie.backdrop }}" alt="" class="hero-bg-img">
-                <div class="container hero-content">
-                    <h1 class="hero-title">{{ movie.title }}</h1>
-                    <div class="hero-meta">
-                        {% if movie.vote_average %}<span class="rating"><i class="fas fa-star"></i> {{ "%.1f"|format(movie.vote_average) }}</span>{% endif %}
-                        {% if movie.release_date %}<span>{{ movie.release_date.split('-')[0] }}</span>{% endif %}
-                        {% if movie.genres %}<span>{{ movie.genres|first }}</span>{% endif %}
-                    </div>
-                    <p class="hero-overview">{{ movie.overview }}</p>
-                    <a href="{{ url_for('movie_detail', movie_id=movie._id) }}" class="hero-btn">More Info <i class="fas fa-play"></i></a>
-                </div>
-            </div>
-        {% endif %}{% endfor %}
-        </div>
-        <div class="swiper-pagination"></div>
+    <div class="container">
+      <div class="swiper hero-slider">
+          <div class="swiper-wrapper">
+          {% for movie in recently_added %}{% if movie.backdrop %}
+              <div class="swiper-slide hero-slide">
+                  <a href="{{ url_for('movie_detail', movie_id=movie._id) }}" style="position:absolute; width:100%; height:100%; z-index:2;"></a>
+                  <img src="{{ movie.backdrop }}" alt="{{ movie.title }}" class="hero-bg-img">
+                  <div class="slide-type-tag">{{ movie.type | title }}</div>
+                  <div class="hero-content">
+                      <h2 class="hero-title">{{ movie.title }} {% if movie.language %} [{{ movie.language }}] {% endif %}</h2>
+                      {% if movie.release_date %}<p class="hero-meta">{{ movie.release_date.split('-')[0] }}</p>{% endif %}
+                  </div>
+              </div>
+          {% endif %}{% endfor %}
+          </div>
+          <div class="swiper-pagination"></div>
+      </div>
     </div>
     <div class="container">
     {% macro render_carousel_section(title, movies_list, cat_name) %}
@@ -219,7 +226,7 @@ index_html = """
 <script>
     const header = document.querySelector('.main-header');
     window.addEventListener('scroll', () => { window.scrollY > 50 ? header.classList.add('scrolled') : header.classList.remove('scrolled'); });
-    new Swiper('.hero-slider', { loop: true, autoplay: { delay: 5000 }, pagination: { el: '.swiper-pagination', clickable: true }, });
+    new Swiper('.hero-slider', { loop: true, autoplay: { delay: 4000 }, pagination: { el: '.swiper-pagination', clickable: true }, });
     new Swiper('.movie-carousel', { slidesPerView: 'auto', spaceBetween: 20, navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev', }, breakpoints: { 320: { spaceBetween: 15 }, 768: { spaceBetween: 20 }, } });
 </script>
 {{ ad_settings.ad_footer | safe }}
@@ -231,6 +238,11 @@ detail_html = """
 <head>
 <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>{{ movie.title if movie else "Content Not Found" }} - {{ website_name }}</title>
+<!-- FAVICON AND META TAGS ADDED HERE -->
+<link rel="icon" href="https://img.icons8.com/fluency/48/cinema-.png" type="image/png"> <!-- আপনার নিজের আইকনের লিঙ্ক এখানে দিন -->
+<meta name="description" content="{{ movie.overview|striptags|truncate(160) }}">
+<meta name="keywords" content="{{ movie.title }}, movie details, download {{ movie.title }}, {{ website_name }}">
+
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 {{ ad_settings.ad_header | safe }}
@@ -370,6 +382,10 @@ wait_page_html = """
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generating Link... - {{ website_name }}</title>
+    <!-- FAVICON AND META TAGS ADDED HERE -->
+    <link rel="icon" href="https://img.icons8.com/fluency/48/cinema-.png" type="image/png"> <!-- আপনার নিজের আইকনের লিঙ্ক এখানে দিন -->
+    <meta name="robots" content="noindex, nofollow"> <!-- Prevents search engines from indexing wait pages -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
     {{ ad_settings.ad_header | safe }}
     <style>
@@ -425,6 +441,10 @@ admin_html = """
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - {{ website_name }}</title>
+    <!-- FAVICON AND META TAGS ADDED HERE -->
+    <link rel="icon" href="https://img.icons8.com/fluency/48/cinema-.png" type="image/png"> <!-- আপনার নিজের আইকনের লিঙ্ক এখানে দিন -->
+    <meta name="robots" content="noindex, nofollow">
+
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
     <style>
@@ -575,6 +595,10 @@ edit_html = """
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Content - {{ website_name }}</title>
+    <!-- FAVICON AND META TAGS ADDED HERE -->
+    <link rel="icon" href="https://img.icons8.com/fluency/48/cinema-.png" type="image/png"> <!-- আপনার নিজের আইকনের লিঙ্ক এখানে দিন -->
+    <meta name="robots" content="noindex, nofollow">
+
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
     <style>
@@ -704,10 +728,7 @@ def wait_page():
     if not encoded_target_url:
         return redirect(url_for('home'))
     
-    # *** THIS IS THE FIX ***
-    # Decode the URL before passing it to the template
     decoded_target_url = unquote(encoded_target_url)
-    
     return render_template_string(wait_page_html, target_url=decoded_target_url)
 
 @app.route('/admin', methods=["GET", "POST"])
