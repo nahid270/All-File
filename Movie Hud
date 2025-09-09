@@ -131,6 +131,17 @@ index_html = """
     --cyan-accent: #00FFFF; --yellow-accent: #FFFF00; --trending-color: #F83D61;
     --type-color: #00E599;
   }
+  @keyframes rgb-glow {
+    0%   { border-color: #ff00de; box-shadow: 0 0 5px #ff00de, 0 0 10px #ff00de inset; }
+    25%  { border-color: #00ffff; box-shadow: 0 0 7px #00ffff, 0 0 12px #00ffff inset; }
+    50%  { border-color: #00ff7f; box-shadow: 0 0 5px #00ff7f, 0 0 10px #00ff7f inset; }
+    75%  { border-color: #f83d61; box-shadow: 0 0 7px #f83d61, 0 0 12px #f83d61 inset; }
+    100% { border-color: #ff00de; box-shadow: 0 0 5px #ff00de, 0 0 10px #ff00de inset; }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { color: var(--text-dark); text-shadow: none; }
+    50% { color: var(--text-light); text-shadow: 0 0 10px var(--cyan-accent); }
+  }
   html { box-sizing: border-box; } *, *:before, *:after { box-sizing: inherit; }
   body {font-family: 'Poppins', sans-serif;background-color: var(--bg-color);color: var(--text-light);overflow-x: hidden; padding-bottom: 70px;}
   a { text-decoration: none; color: inherit; } img { max-width: 100%; display: block; }
@@ -158,9 +169,28 @@ index_html = """
   .hero-slider .swiper-pagination-bullet-active { background: var(--text-light); width: 24px; border-radius: 5px; opacity: 1; }
 
   .category-section { margin: 30px 0; }
-  .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-  .category-title { font-size: 1.5rem; font-weight: 600; }
-  .view-all-link { font-size: 0.8rem; color: var(--text-dark); font-weight: 500; }
+  .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .category-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: inline-block;
+    padding: 8px 20px;
+    background-color: rgba(26, 26, 26, 0.8);
+    border: 2px solid;
+    border-radius: 50px;
+    animation: rgb-glow 4s linear infinite;
+    backdrop-filter: blur(3px);
+  }
+  .view-all-link {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    font-weight: 500;
+    padding: 6px 15px;
+    border-radius: 20px;
+    background-color: #222;
+    transition: all 0.3s ease;
+    animation: pulse-glow 2.5s ease-in-out infinite;
+  }
   .category-grid, .full-page-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
   .movie-card { display: block; position: relative; border-radius: 8px; overflow: hidden; background-color: var(--card-bg); border: 2px solid; }
   .movie-card:nth-child(4n+1), .movie-card:nth-child(4n+4) { border-color: var(--yellow-accent); }
