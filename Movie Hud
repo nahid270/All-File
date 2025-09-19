@@ -6,7 +6,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from functools import wraps
 from urllib.parse import unquote, quote
-from datetime import datetime, time
+from datetime import datetime
 import math # Added for pagination calculation
 
 # --- Environment Variables ---
@@ -24,7 +24,7 @@ if not all([MONGO_URI, TMDB_API_KEY, ADMIN_USERNAME, ADMIN_PASSWORD]):
 
 # --- App Initialization ---
 PLACEHOLDER_POSTER = "https://via.placeholder.com/400x600.png?text=Poster+Not+Found"
-ITEMS_PER_PAGE = 20 # New constant for pagination
+ITEMS_PER_PAGE = 20
 app = Flask(__name__)
 
 # --- Authentication ---
@@ -50,11 +50,11 @@ try:
     movies = db["movies"]
     settings = db["settings"]
     categories_collection = db["categories"]
-    requests_collection = db["requests"] # New collection for user requests
+    requests_collection = db["requests"]
     print("SUCCESS: Successfully connected to MongoDB!")
 
     if categories_collection.count_documents({}) == 0:
-        default_categories = ["Coming Soon", "Bengali", "Hindi", "English", "18+ Adult Zone", "Trending"]
+        default_categories = ["Bangla", "Hindi", "English", "18+ Adult", "Korean", "Dual Audio", "Bangla Dubbed", "Hindi Dubbed", "Indonesian", "Horror", "Action", "Thriller", "Anime", "Romance", "Trending"]
         categories_collection.insert_many([{"name": cat} for cat in default_categories])
         print("SUCCESS: Initialized default categories in the database.")
 
@@ -62,26 +62,22 @@ try:
         movies.create_index("title")
         movies.create_index("type")
         movies.create_index("categories")
-        movies.create_index("created_at")
-        movies.create_index("updated_at") # ADDED: Index for sorting by update time
+        movies.create_index("updated_at")
         categories_collection.create_index("name", unique=True)
         requests_collection.create_index("status")
-        requests_collection.create_index("created_at")
         print("SUCCESS: MongoDB indexes checked/created.")
     except Exception as e:
         print(f"WARNING: Could not create MongoDB indexes: {e}")
 
-    # ONE-TIME MIGRATION: Add 'updated_at' to documents that don't have it.
     print("INFO: Checking for documents missing 'updated_at' field for migration...")
     result = movies.update_many(
         {"updated_at": {"$exists": False}},
-        [{"$set": {"updated_at": "$created_at"}}] # Sets updated_at from created_at for old documents
+        [{"$set": {"updated_at": "$created_at"}}]
     )
     if result.modified_count > 0:
         print(f"SUCCESS: Migrated {result.modified_count} old documents to include 'updated_at' field.")
     else:
         print("INFO: All documents already have the 'updated_at' field.")
-
 
 except Exception as e:
     print(f"FATAL: Error connecting to MongoDB: {e}.")
@@ -121,7 +117,7 @@ def inject_globals():
     )
 
 # =========================================================================================
-# === [START] HTML TEMPLATES (HTML templates remain unchanged) ==========================
+# === [START] HTML TEMPLATES ==============================================================
 # =========================================================================================
 index_html = """
 <!DOCTYPE html>
@@ -139,7 +135,7 @@ index_html = """
 {{ ad_settings.ad_header | safe }}
 <style>
   :root {
-    --primary-color: #E50914; --bg-color: #000000; --card-bg: #1a1a1a;
+    --primary-color: #E50914; --bg-color: #141414; --card-bg: #1a1a1a;
     --text-light: #ffffff; --text-dark: #a0a0a0; --nav-height: 60px;
     --cyan-accent: #00FFFF; --yellow-accent: #FFFF00; --trending-color: #F83D61;
     --type-color: #00E599;
@@ -165,6 +161,14 @@ index_html = """
   .logo { font-size: 1.8rem; font-weight: 700; color: var(--primary-color); }
   .menu-toggle { display: block; font-size: 1.8rem; cursor: pointer; background: none; border: none; color: white; z-index: 1001;}
   
+  /* --- UPDATED: Nav Grid Styles (Smaller Buttons) --- */
+  .nav-grid-container { padding: 20px 0 30px 0; }
+  .nav-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .nav-grid-item { display: inline-flex; align-items: center; justify-content: center; background-color: var(--primary-color); color: white; padding: 8px 15px; border-radius: 5px; font-size: 0.85rem; font-weight: 500; text-transform: uppercase; text-decoration: none; transition: transform 0.2s ease, background-color 0.2s ease; }
+  .nav-grid-item:hover { background-color: #c40812; transform: scale(1.05); }
+  .nav-grid-item i { margin-right: 6px; font-size: 1em; }
+  .icon-18 { font-family: sans-serif; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; line-height: 1; margin-right: 6px; font-weight: bold; }
+  
   @keyframes cyan-glow {
       0% { box-shadow: 0 0 15px 2px #00D1FF; } 50% { box-shadow: 0 0 25px 6px #00D1FF; } 100% { box-shadow: 0 0 15px 2px #00D1FF; }
   }
@@ -183,27 +187,8 @@ index_html = """
 
   .category-section { margin: 30px 0; }
   .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  .category-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    display: inline-block;
-    padding: 8px 20px;
-    background-color: rgba(26, 26, 26, 0.8);
-    border: 2px solid;
-    border-radius: 50px;
-    animation: rgb-glow 4s linear infinite;
-    backdrop-filter: blur(3px);
-  }
-  .view-all-link {
-    font-size: 0.9rem;
-    color: var(--text-dark);
-    font-weight: 500;
-    padding: 6px 15px;
-    border-radius: 20px;
-    background-color: #222;
-    transition: all 0.3s ease;
-    animation: pulse-glow 2.5s ease-in-out infinite;
-  }
+  .category-title { font-size: 1.5rem; font-weight: 600; display: inline-block; padding: 8px 20px; background-color: rgba(26, 26, 26, 0.8); border: 2px solid; border-radius: 50px; animation: rgb-glow 4s linear infinite; backdrop-filter: blur(3px); }
+  .view-all-link { font-size: 0.9rem; color: var(--text-dark); font-weight: 500; padding: 6px 15px; border-radius: 20px; background-color: #222; transition: all 0.3s ease; animation: pulse-glow 2.5s ease-in-out infinite; }
   .category-grid, .full-page-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
   .movie-card { display: block; position: relative; border-radius: 8px; overflow: hidden; background-color: var(--card-bg); border: 2px solid; }
   .movie-card:nth-child(4n+1), .movie-card:nth-child(4n+4) { border-color: var(--yellow-accent); }
@@ -217,13 +202,11 @@ index_html = """
   .type-tag { bottom: 8px; right: 8px; background-color: var(--type-color); }
   .trending-tag { top: 8px; left: -1px; background-color: var(--trending-color); clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 0% 100%); padding-right: 15px; border-radius:0; }
   .language-tag { top: 8px; right: 8px; background-color: var(--primary-color); }
-
   .full-page-grid-container { padding: 80px 10px 20px; }
   .full-page-grid-title { font-size: 1.8rem; font-weight: 700; margin-bottom: 20px; text-align: center; }
   .main-footer { background-color: #111; padding: 20px; text-align: center; color: var(--text-dark); margin-top: 30px; font-size: 0.8rem; }
   .ad-container { margin: 20px auto; width: 100%; max-width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; min-height: 50px; text-align: center; }
   .ad-container > * { max-width: 100% !important; }
-  
   .mobile-nav-menu {position: fixed;top: 0;left: 0;width: 100%;height: 100%;background-color: var(--bg-color);z-index: 9999;display: flex;flex-direction: column;align-items: center;justify-content: center;transform: translateX(-100%);transition: transform 0.3s ease-in-out;}
   .mobile-nav-menu.active {transform: translateX(0);}
   .mobile-nav-menu .close-btn {position: absolute;top: 20px;right: 20px;font-size: 2.5rem;color: white;background: none;border: none;cursor: pointer;}
@@ -231,12 +214,10 @@ index_html = """
   .mobile-links a {font-size: 1.5rem;font-weight: 500;color: var(--text-light);transition: color 0.2s;}
   .mobile-links a:hover {color: var(--primary-color);}
   .mobile-links hr {width: 50%;border-color: #333;margin: 10px auto;}
-  
   .bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background-color: #181818; box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 1000; justify-content: space-around; align-items: center; padding-top: 5px; }
   .bottom-nav .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dark); background: none; border: none; font-size: 12px; flex-grow: 1; font-weight: 500; }
   .bottom-nav .nav-item i { font-size: 22px; margin-bottom: 5px; }
   .bottom-nav .nav-item.active, .bottom-nav .nav-item:hover { color: var(--primary-color); }
-  
   .search-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 10000; display: none; flex-direction: column; padding: 20px; }
   .search-overlay.active { display: flex; }
   .search-container { width: 100%; max-width: 800px; margin: 0 auto; }
@@ -283,11 +264,14 @@ index_html = """
 <main>
   {% macro render_movie_card(m) %}
     <a href="{{ url_for('movie_detail', movie_id=m._id) }}" class="movie-card">
-      {% if m.categories and 'Trending' in m.categories %}<span class="trending-tag">Trending</span>{% endif %}
+      {% if 'Trending' in m.categories %}<span class="trending-tag">Trending</span>{% endif %}
       {% if m.language %}<span class="language-tag">{{ m.language }}</span>{% endif %}
       <img class="movie-poster" loading="lazy" src="{{ m.poster or 'https://via.placeholder.com/400x600.png?text=No+Image' }}" alt="{{ m.title }}">
       <div class="card-info">
-        <p class="card-meta"><i class="fas fa-clock"></i> {{ m._id | time_ago }}</p>
+        <p class="card-meta">
+          {% if m.release_date %}<i class="fas fa-calendar-alt"></i> {{ m.release_date.split('-')[0] }} &nbsp;&nbsp;{% endif %}
+          <i class="fas fa-clock"></i> {{ m._id | time_ago }}
+        </p>
         <h4 class="card-title">{{ m.title }}</h4>
       </div>
        <span class="type-tag">{{ m.type | title }}</span>
@@ -311,6 +295,24 @@ index_html = """
     </div>
   {% else %}
     <div style="height: var(--nav-height);"></div>
+    
+    <!-- Category Grid Navigation (As per your image) -->
+    <section class="nav-grid-container container">
+        <div class="nav-grid">
+            <a href="{{ url_for('home') }}" class="nav-grid-item"><i class="fas fa-home"></i> HOME</a>
+            {% for cat in predefined_categories %}
+                <a href="{{ url_for('movies_by_category', name=cat) }}" class="nav-grid-item">
+                    {% if '18+' in cat %}
+                        <span class="icon-18">18</span>
+                    {% endif %}
+                    {{ cat }}
+                </a>
+            {% endfor %}
+            <a href="{{ url_for('all_movies') }}" class="nav-grid-item">ALL MOVIES</a>
+            <a href="{{ url_for('all_series') }}" class="nav-grid-item">WEB SERIES & TV SHOWS</a>
+        </div>
+    </section>
+
     {% if slider_content %}
     <section class="hero-slider-section container">
         <div class="swiper hero-slider">
@@ -354,10 +356,29 @@ index_html = """
       {% endmacro %}
       
       {{ render_grid_section('Trending Now', categorized_content['Trending'], 'Trending') }}
-      {{ render_grid_section('Latest Movies & Series', latest_content, 'Latest') }}
+
+      {# MODIFIED: Combined "Recently Added" section replaces separate movie/series sections #}
+      {% if latest_content %}
+      <section class="category-section">
+          <div class="category-header">
+              <h2 class="category-title">Recently Added</h2>
+              {# This "View All" link now goes to the all movies page as a general catch-all #}
+              <a href="{{ url_for('all_movies') }}" class="view-all-link">View All &rarr;</a>
+          </div>
+          <div class="category-grid">
+              {% for m in latest_content %}
+                  {{ render_movie_card(m) }}
+              {% endfor %}
+          </div>
+      </section>
+      {% endif %}
+
       {% if ad_settings.ad_list_page %}<div class="ad-container">{{ ad_settings.ad_list_page | safe }}</div>{% endif %}
+      
       {% for cat_name, movies_list in categorized_content.items() %}
-          {% if cat_name != 'Trending' %}{{ render_grid_section(cat_name, movies_list, cat_name) }}{% endif %}
+          {% if cat_name != 'Trending' %}
+            {{ render_grid_section(cat_name, movies_list, cat_name) }}
+          {% endif %}
       {% endfor %}
     </div>
   {% endif %}
@@ -1000,24 +1021,18 @@ admin_html = """
     function closeModal() { document.getElementById('search-modal').style.display = 'none'; }
     async function searchTmdb() { const query = document.getElementById('tmdb_search_query').value.trim(); if (!query) return; const searchBtn = document.getElementById('tmdb_search_btn'); searchBtn.disabled = true; searchBtn.innerHTML = 'Searching...'; openModal(); try { const response = await fetch('/admin/api/search?query=' + encodeURIComponent(query)); const results = await response.json(); const container = document.getElementById('search-results'); container.innerHTML = ''; if(results.length > 0) { results.forEach(item => { const resultDiv = document.createElement('div'); resultDiv.className = 'result-item'; resultDiv.onclick = () => selectResult(item.id, item.media_type); resultDiv.innerHTML = `<img src="${item.poster}" alt="${item.title}"><p><strong>${item.title}</strong> (${item.year})</p>`; container.appendChild(resultDiv); }); } else { container.innerHTML = '<p>No results found.</p>'; } } catch (e) { console.error(e); } finally { searchBtn.disabled = false; searchBtn.innerHTML = 'Search'; } }
     async function selectResult(tmdbId, mediaType) { closeModal(); try { const response = await fetch(`/admin/api/details?id=${tmdbId}&type=${mediaType}`); const data = await response.json(); document.getElementById('tmdb_id').value = data.tmdb_id || ''; document.getElementById('title').value = data.title || ''; document.getElementById('overview').value = data.overview || ''; document.getElementById('poster').value = data.poster || ''; document.getElementById('backdrop').value = data.backdrop || ''; document.getElementById('genres').value = data.genres ? data.genres.join(', ') : ''; document.getElementById('content_type').value = data.type === 'series' ? 'series' : 'movie'; toggleFields(); } catch (e) { console.error(e); } }
-    
-    // --- NEW LIVE SEARCH SCRIPT ---
     let debounceTimer;
     const searchInput = document.getElementById('admin-live-search');
     const tableBody = document.getElementById('content-table-body');
-
     searchInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             const query = searchInput.value.trim();
-            
-            // Show loading state
             tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Loading...</td></tr>';
-            
             fetch(`/admin/api/live_search?q=${encodeURIComponent(query)}`)
                 .then(response => response.json())
                 .then(data => {
-                    tableBody.innerHTML = ''; // Clear table
+                    tableBody.innerHTML = '';
                     if (data.length > 0) {
                         data.forEach(movie => {
                             const row = `
@@ -1033,18 +1048,11 @@ admin_html = """
                             `;
                             tableBody.innerHTML += row;
                         });
-                    } else {
-                        tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No content found.</td></tr>';
-                    }
+                    } else { tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No content found.</td></tr>'; }
                 })
-                .catch(error => {
-                    console.error('Error fetching search results:', error);
-                    tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Error loading results.</td></tr>';
-                });
-        }, 400); // 400ms delay
+                .catch(error => { console.error('Error fetching search results:', error); tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Error loading results.</td></tr>'; });
+        }, 400);
     });
-    // --- END LIVE SEARCH SCRIPT ---
-
     document.addEventListener('DOMContentLoaded', function() { toggleFields(); const selectAll = document.getElementById('select-all'); if(selectAll) { selectAll.addEventListener('change', e => document.querySelectorAll('.row-checkbox').forEach(c => c.checked = e.target.checked)); } });
 </script>
 </body></html>
@@ -1131,7 +1139,6 @@ edit_html = """
 
 # --- TMDB API Helper Function ---
 def get_tmdb_details(tmdb_id, media_type):
-    # This function is unchanged
     if not TMDB_API_KEY: return None
     search_type = "tv" if media_type == "tv" else "movie"
     try:
@@ -1170,13 +1177,25 @@ def home():
     query = request.args.get('q', '').strip()
     if query:
         movies_list = list(movies.find({"title": {"$regex": query, "$options": "i"}}).sort('updated_at', -1))
-        return render_template_string(index_html, movies=movies_list, query=f'Results for "{query}"', is_full_page_list=True)
+        total_results = movies.count_documents({"title": {"$regex": query, "$options": "i"}})
+        pagination = Pagination(1, ITEMS_PER_PAGE, total_results)
+        return render_template_string(index_html, movies=movies_list, query=f'Results for "{query}"', is_full_page_list=True, pagination=pagination)
+
+    # MODIFIED: The slider will now show the 10 most recently updated items (movies or series).
+    slider_content = list(movies.find({}).sort('updated_at', -1).limit(10))
+
+    # MODIFIED: A single list for the "Recently Added" section, containing both movies and series.
+    latest_content = list(movies.find({}).sort('updated_at', -1).limit(10))
     
-    slider_content = list(movies.find({}).sort('updated_at', -1).limit(15))
     home_categories = [cat['name'] for cat in categories_collection.find().sort("name", 1)]
     categorized_content = {cat: list(movies.find({"categories": cat}).sort('updated_at', -1).limit(10)) for cat in home_categories}
-    latest_content = list(movies.find().sort('updated_at', -1).limit(10))
-    context = {"slider_content": slider_content, "latest_content": latest_content, "categorized_content": categorized_content, "is_full_page_list": False}
+
+    context = {
+        "slider_content": slider_content,
+        "latest_content": latest_content, # MODIFIED: Pass the new combined list
+        "categorized_content": categorized_content,
+        "is_full_page_list": False
+    }
     return render_template_string(index_html, **context)
 
 @app.route('/movie/<movie_id>')
@@ -1184,9 +1203,7 @@ def movie_detail(movie_id):
     try:
         movie = movies.find_one({"_id": ObjectId(movie_id)})
         if not movie: return "Content not found", 404
-        related_content = []
-        if movie.get('type'):
-            related_content = list(movies.find({"type": movie['type'], "_id": {"$ne": movie['_id']}}).sort('updated_at', -1).limit(10))
+        related_content = list(movies.find({"type": movie.get('type'), "_id": {"$ne": movie['_id']}}).sort('updated_at', -1).limit(10))
         return render_template_string(detail_html, movie=movie, related_content=related_content)
     except: return "Content not found", 404
 
@@ -1207,7 +1224,7 @@ def all_movies():
 def all_series():
     page = request.args.get('page', 1, type=int)
     all_series_content, pagination = get_paginated_content({"type": "series"}, page)
-    return render_template_string(index_html, movies=all_series_content, query="All Series", is_full_page_list=True, pagination=pagination)
+    return render_template_string(index_html, movies=all_series_content, query="Web Series & TV Shows", is_full_page_list=True, pagination=pagination)
 
 @app.route('/category')
 def movies_by_category():
@@ -1216,15 +1233,15 @@ def movies_by_category():
     page = request.args.get('page', 1, type=int)
     
     query_filter = {}
-    if title == "Latest":
-        # For "Latest", we don't filter by category, just sort by update time
-        query_filter = {}
+    if title == "Latest Movies":
+        query_filter = {"type": "movie"}
+    elif title == "Latest Series":
+        query_filter = {"type": "series"}
     else:
         query_filter = {"categories": title}
     
     content_list, pagination = get_paginated_content(query_filter, page)
-    query_title = "Latest Movies & Series" if title == "Latest" else title
-    return render_template_string(index_html, movies=content_list, query=query_title, is_full_page_list=True, pagination=pagination)
+    return render_template_string(index_html, movies=content_list, query=title, is_full_page_list=True, pagination=pagination)
 
 @app.route('/request', methods=['GET', 'POST'])
 def request_content():
@@ -1233,10 +1250,7 @@ def request_content():
         extra_info = request.form.get('extra_info', '').strip()
         if content_name:
             requests_collection.insert_one({
-                "name": content_name,
-                "info": extra_info,
-                "status": "Pending",
-                "created_at": datetime.utcnow()
+                "name": content_name, "info": extra_info, "status": "Pending", "created_at": datetime.utcnow()
             })
         return redirect(url_for('request_content'))
     return render_template_string(request_html)
@@ -1247,7 +1261,6 @@ def wait_page():
     if not encoded_target_url: return redirect(url_for('home'))
     return render_template_string(wait_page_html, target_url=unquote(encoded_target_url))
 
-# --- ADMIN ROUTES ---
 @app.route('/admin', methods=["GET", "POST"])
 @requires_auth
 def admin():
@@ -1265,28 +1278,20 @@ def admin():
         elif form_action == "add_content":
             content_type = request.form.get("content_type", "movie")
             movie_data = {
-                "title": request.form.get("title").strip(),
-                "type": content_type,
+                "title": request.form.get("title").strip(), "type": content_type,
                 "poster": request.form.get("poster").strip() or PLACEHOLDER_POSTER,
                 "backdrop": request.form.get("backdrop").strip() or None,
-                "overview": request.form.get("overview").strip(),
-                "language": request.form.get("language").strip() or None,
+                "overview": request.form.get("overview").strip(), "language": request.form.get("language").strip() or None,
                 "genres": [g.strip() for g in request.form.get("genres", "").split(',') if g.strip()],
-                "categories": request.form.getlist("categories"),
-                "episodes": [], "links": [], "season_packs": [], "manual_links": [],
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow() # ADDED: Set update timestamp on creation
+                "categories": request.form.getlist("categories"), "episodes": [], "links": [], "season_packs": [], "manual_links": [],
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
             }
-            tmdb_id = request.form.get("tmdb_id");
+            tmdb_id = request.form.get("tmdb_id")
             if tmdb_id:
                 tmdb_details = get_tmdb_details(tmdb_id, "tv" if content_type == "series" else "movie")
                 if tmdb_details: movie_data.update({'release_date': tmdb_details.get('release_date'),'vote_average': tmdb_details.get('vote_average')})
             if content_type == "movie":
-                movie_links = []
-                for q in ["480p", "720p", "1080p"]:
-                    w, d = request.form.get(f"watch_link_{q}"), request.form.get(f"download_link_{q}")
-                    if w or d: movie_links.append({"quality": q, "watch_url": w, "download_url": d})
-                movie_data["links"] = movie_links
+                movie_data["links"] = [{"quality": q, "watch_url": request.form.get(f"watch_link_{q}"), "download_url": request.form.get(f"download_link_{q}")} for q in ["480p", "720p", "1080p"] if request.form.get(f"watch_link_{q}") or request.form.get(f"download_link_{q}")]
             else:
                 sp_nums, sp_w, sp_d = request.form.getlist('season_pack_number[]'), request.form.getlist('season_pack_watch_link[]'), request.form.getlist('season_pack_download_link[]')
                 movie_data['season_packs'] = [{"season_number": int(sp_nums[i]), "watch_link": sp_w[i].strip() or None, "download_link": sp_d[i].strip() or None} for i in range(len(sp_nums)) if sp_nums[i]]
@@ -1298,18 +1303,10 @@ def admin():
         return redirect(url_for('admin'))
     
     content_list = list(movies.find({}).sort('updated_at', -1))
-    
-    stats = {
-        "total_content": movies.count_documents({}),
-        "total_movies": movies.count_documents({"type": "movie"}),
-        "total_series": movies.count_documents({"type": "series"}),
-        "pending_requests": requests_collection.count_documents({"status": "Pending"})
-    }
-    
+    stats = {"total_content": movies.count_documents({}), "total_movies": movies.count_documents({"type": "movie"}), "total_series": movies.count_documents({"type": "series"}), "pending_requests": requests_collection.count_documents({"status": "Pending"})}
     requests_list = list(requests_collection.find().sort("created_at", -1))
     categories_list = list(categories_collection.find().sort("name", 1))
     ad_settings_data = settings.find_one({"_id": "ad_config"}) or {}
-    
     return render_template_string(admin_html, content_list=content_list, stats=stats, requests_list=requests_list, ad_settings=ad_settings_data, categories_list=categories_list)
 
 @app.route('/admin/category/delete/<cat_id>')
@@ -1345,24 +1342,17 @@ def edit_movie(movie_id):
     if request.method == "POST":
         content_type = request.form.get("content_type")
         update_data = {
-            "title": request.form.get("title").strip(),
-            "type": content_type,
+            "title": request.form.get("title").strip(), "type": content_type,
             "poster": request.form.get("poster").strip() or PLACEHOLDER_POSTER,
             "backdrop": request.form.get("backdrop").strip() or None,
-            "overview": request.form.get("overview").strip(),
-            "language": request.form.get("language").strip() or None,
+            "overview": request.form.get("overview").strip(), "language": request.form.get("language").strip() or None,
             "genres": [g.strip() for g in request.form.get("genres").split(',') if g.strip()],
-            "categories": request.form.getlist("categories"),
-            "updated_at": datetime.utcnow() # ADDED: Set update timestamp on edit
+            "categories": request.form.getlist("categories"), "updated_at": datetime.utcnow()
         }
         names, urls = request.form.getlist('manual_link_name[]'), request.form.getlist('manual_link_url[]')
         update_data["manual_links"] = [{"name": names[i].strip(), "url": urls[i].strip()} for i in range(len(names)) if names[i] and urls[i]]
         if content_type == "movie":
-            movie_links = []
-            for q in ["480p", "720p", "1080p"]:
-                w, d = request.form.get(f"watch_link_{q}"), request.form.get(f"download_link_{q}")
-                if w or d: movie_links.append({"quality": q, "watch_url": w, "download_url": d})
-            update_data["links"] = movie_links
+            update_data["links"] = [{"quality": q, "watch_url": request.form.get(f"watch_link_{q}"), "download_url": request.form.get(f"download_link_{q}")} for q in ["480p", "720p", "1080p"] if request.form.get(f"watch_link_{q}") or request.form.get(f"download_link_{q}")]
             movies.update_one({"_id": obj_id}, {"$set": update_data, "$unset": {"episodes": "", "season_packs": ""}})
         else:
             sp_nums, sp_w, sp_d = request.form.getlist('season_pack_number[]'), request.form.getlist('season_pack_watch_link[]'), request.form.getlist('season_pack_download_link[]')
@@ -1382,23 +1372,16 @@ def delete_movie(movie_id):
     except: return "Invalid ID", 400
     return redirect(url_for('admin'))
 
-# --- API Routes ---
 @app.route('/admin/api/live_search')
 @requires_auth
 def admin_api_live_search():
     query = request.args.get('q', '').strip()
-    query_filter = {}
-    if query:
-        query_filter = {"title": {"$regex": query, "$options": "i"}}
-    
     try:
-        results = list(movies.find(query_filter, {"_id": 1, "title": 1, "type": 1}).sort('updated_at', -1))
-        for item in results:
-            item['_id'] = str(item['_id'])
+        results = list(movies.find({"title": {"$regex": query, "$options": "i"} if query else {}}, {"_id": 1, "title": 1, "type": 1}).sort('updated_at', -1))
+        for item in results: item['_id'] = str(item['_id'])
         return jsonify(results)
     except Exception as e:
-        print(f"Admin Live Search API Error: {e}")
-        return jsonify({"error": "An error occurred"}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/admin/api/search')
 @requires_auth
@@ -1410,10 +1393,7 @@ def api_search_tmdb():
         res = requests.get(search_url, timeout=10)
         res.raise_for_status()
         data = res.json()
-        results = []
-        for item in data.get('results', []):
-            if item.get('media_type') in ['movie', 'tv'] and item.get('poster_path'):
-                results.append({"id": item.get('id'),"title": item.get('title') or item.get('name'),"year": (item.get('release_date') or item.get('first_air_date', 'N/A')).split('-')[0],"poster": f"https://image.tmdb.org/t/p/w200{item.get('poster_path')}","media_type": item.get('media_type')})
+        results = [{"id": item.get('id'),"title": item.get('title') or item.get('name'),"year": (item.get('release_date') or item.get('first_air_date', 'N/A')).split('-')[0],"poster": f"https://image.tmdb.org/t/p/w200{item.get('poster_path')}","media_type": item.get('media_type')} for item in data.get('results', []) if item.get('media_type') in ['movie', 'tv'] and item.get('poster_path')]
         return jsonify(results)
     except Exception as e: return jsonify({"error": str(e)}), 500
 
@@ -1439,4 +1419,6 @@ def api_search():
         return jsonify({"error": "An error occurred"}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 3000)))
+    # For local development
+    port = int(os.environ.get('PORT', 3000))
+    app.run(debug=True, host='0.0.0.0', port=port)
