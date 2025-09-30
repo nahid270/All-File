@@ -316,8 +316,25 @@ index_html = """
     margin: 0 0 5px 0; line-height: 1.4; min-height: 2.8em;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   }
-  .card-meta { font-size: 0.75rem; color: var(--text-dark); display: flex; align-items: center; gap: 5px; }
-  .card-meta i { color: var(--cyan-accent); }
+  
+  /* ## START: VIEW COUNT CSS CHANGE ## */
+  .card-meta { 
+    font-size: 0.75rem; 
+    color: var(--text-dark); 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; /* This creates the left/right alignment */
+  }
+  .card-meta span { /* Style for the inner groups (time and views) */
+      display: flex;
+      align-items: center;
+      gap: 5px;
+  }
+  .card-meta i { 
+      color: var(--cyan-accent); 
+  }
+  /* ## END: VIEW COUNT CSS CHANGE ## */
+
   .type-tag, .language-tag {
     position: absolute; color: white; padding: 2px 8px; font-size: 0.65rem; font-weight: 600; z-index: 2; text-transform: uppercase; border-radius: 4px;
   }
@@ -404,9 +421,12 @@ index_html = """
           {{ m.title }}
           {% if m.release_date %} ({{ m.release_date.split('-')[0] }}){% endif %}
         </h4>
+        <!-- ## START: VIEW COUNT HTML CHANGE ## -->
         <p class="card-meta">
-          <i class="fas fa-clock"></i> {{ m._id | time_ago }}
+          <span><i class="fas fa-clock"></i> {{ m._id | time_ago }}</span>
+          <span><i class="fas fa-eye"></i> {{ '{:,.0f}'.format(m.view_count or 0) }}</span>
         </p>
+        <!-- ## END: VIEW COUNT HTML CHANGE ## -->
       </div>
     </a>
   {% endmacro %}
@@ -658,6 +678,18 @@ detail_html = """
   .card-meta { font-size: 0.8rem; color: var(--text-dark); }
   .swiper-button-next, .swiper-button-prev { color: var(--text-light); display: none; }
 
+  /* START: New Screenshot Gallery Styles */
+  .screenshots-section { margin: 40px 0; }
+  .screenshots-section h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .gallery-top { border-radius: 10px; margin-bottom: 10px; background: #111; }
+  .gallery-top .swiper-slide { background-size: cover; background-position: center; }
+  .gallery-top .swiper-slide img { display: block; width: 100%; height: auto; object-fit: contain; }
+  .gallery-thumbs { height: 100px; }
+  .gallery-thumbs .swiper-slide { width: 25%; height: 100%; opacity: 0.5; transition: opacity 0.3s; }
+  .gallery-thumbs .swiper-slide-thumb-active { opacity: 1; border: 2px solid var(--primary-color); border-radius: 5px; }
+  .gallery-thumbs .swiper-slide img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 5px; }
+  /* END: New Screenshot Gallery Styles */
+
   @media (min-width: 768px) {
     .container { padding: 0 40px; }
     .detail-hero { padding: 120px 0 60px; }
@@ -669,6 +701,7 @@ detail_html = """
     .episode-item { flex-direction: row; justify-content: space-between; align-items: center; }
     .movie-carousel .swiper-slide { width: 220px; }
     .swiper-button-next, .swiper-button-prev { display: flex; }
+    .gallery-thumbs { height: 150px; }
   }
 </style>
 </head>
@@ -799,6 +832,35 @@ detail_html = """
             {% endif %}
         </div>
     </div>
+    
+    <!-- START: Screenshots Section -->
+    {% if movie.screenshots %}
+    <section class="screenshots-section">
+        <h2><i class="fas fa-images"></i> Screenshots</h2>
+        <div class="swiper gallery-top">
+            <div class="swiper-wrapper">
+                {% for ss in movie.screenshots %}
+                <div class="swiper-slide">
+                    <img src="{{ ss }}" loading="lazy" alt="Screenshot of {{ movie.title }}">
+                </div>
+                {% endfor %}
+            </div>
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+        </div>
+        <div class="swiper gallery-thumbs">
+            <div class="swiper-wrapper">
+                {% for ss in movie.screenshots %}
+                <div class="swiper-slide">
+                    <img src="{{ ss }}" loading="lazy" alt="Thumbnail of {{ movie.title }}">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+    <!-- END: Screenshots Section -->
+
     {% if related_content %}
     <section class="category-section">
         <div class="category-header">
@@ -842,6 +904,28 @@ detail_html = """
             prevEl: '.swiper-button-prev',
         }
     });
+
+    // START: New Screenshot Gallery JS
+    if (document.querySelector('.gallery-thumbs')) {
+        var galleryThumbs = new Swiper('.gallery-thumbs', {
+            spaceBetween: 10,
+            slidesPerView: 4,
+            freeMode: true,
+            watchSlidesVisibility: true,
+            watchSlidesProgress: true,
+        });
+        var galleryTop = new Swiper('.gallery-top', {
+            spaceBetween: 10,
+            navigation: {
+                nextEl: '.swiper-button-next',
+                prevEl: '.swiper-button-prev',
+            },
+            thumbs: {
+                swiper: galleryThumbs
+            }
+        });
+    }
+    // END: New Screenshot Gallery JS
 </script>
 {{ ad_settings.ad_footer | safe }}
 </body></html>
@@ -1111,6 +1195,12 @@ admin_html = """
             <div class="form-group"><label>Poster URL:</label><input type="url" name="poster" id="poster"></div>
             <div class="form-group"><label>Backdrop URL:</label><input type="url" name="backdrop" id="backdrop"></div>
             <div class="form-group"><label>Overview:</label><textarea name="overview" id="overview"></textarea></div>
+            <!-- START: New Screenshots Field -->
+            <div class="form-group">
+                <label>Screenshots (Paste one URL per line):</label>
+                <textarea name="screenshots" rows="5"></textarea>
+            </div>
+            <!-- END: New Screenshots Field -->
             <div class="form-group"><label>Language:</label><input type="text" name="language" id="language" placeholder="e.g., Hindi"></div>
             <div class="form-group"><label>Genres (comma-separated):</label><input type="text" name="genres" id="genres"></div>
             <div class="form-group"><label>Categories:</label><div class="checkbox-group">{% for cat in categories_list %}<label><input type="checkbox" name="categories" value="{{ cat.name }}"> {{ cat.name }}</label>{% endfor %}</div></div>
@@ -1249,6 +1339,12 @@ edit_html = """
         <div class="form-group"><label>Poster URL:</label><input type="url" name="poster" value="{{ movie.poster or '' }}"></div>
         <div class="form-group"><label>Backdrop URL:</label><input type="url" name="backdrop" value="{{ movie.backdrop or '' }}"></div>
         <div class="form-group"><label>Overview:</label><textarea name="overview">{{ movie.overview or '' }}</textarea></div>
+        <!-- START: New Screenshots Field for Editing -->
+        <div class="form-group">
+            <label>Screenshots (Paste one URL per line):</label>
+            <textarea name="screenshots" rows="5">{{ movie.screenshots|join('\n') if movie.screenshots }}</textarea>
+        </div>
+        <!-- END: New Screenshots Field for Editing -->
         <div class="form-group"><label>Language:</label><input type="text" name="language" value="{{ movie.language or '' }}"></div>
         <div class="form-group"><label>Genres:</label><input type="text" name="genres" value="{{ movie.genres|join(', ') if movie.genres else '' }}"></div>
         <div class="form-group"><label>Categories:</label><div class="checkbox-group">{% for cat in categories_list %}<label><input type="checkbox" name="categories" value="{{ cat.name }}" {% if movie.categories and cat.name in movie.categories %}checked{% endif %}> {{ cat.name }}</label>{% endfor %}</div></div>
@@ -1352,7 +1448,15 @@ def home():
 @app.route('/movie/<movie_id>')
 def movie_detail(movie_id):
     try:
-        movie = movies.find_one({"_id": ObjectId(movie_id)})
+        # ## START: VIEW COUNT CHANGE ##
+        # Find the movie and increment its view count in one atomic operation
+        movie = movies.find_one_and_update(
+            {"_id": ObjectId(movie_id)},
+            {"$inc": {"view_count": 1}},
+            return_document=True # Returns the updated document
+        )
+        # ## END: VIEW COUNT CHANGE ##
+        
         if not movie: return "Content not found", 404
         related_content = list(movies.find({"type": movie.get('type'), "_id": {"$ne": movie['_id']}}).sort('updated_at', -1).limit(10))
         return render_template_string(detail_html, movie=movie, related_content=related_content)
@@ -1428,14 +1532,19 @@ def admin():
             if ids_to_delete: movies.delete_many({"_id": {"$in": [ObjectId(id_str) for id_str in ids_to_delete]}})
         elif form_action == "add_content":
             content_type = request.form.get("content_type", "movie")
+            screenshots_text = request.form.get("screenshots", "").strip()
+            screenshots_list = [url.strip() for url in screenshots_text.splitlines() if url.strip()]
             movie_data = {
                 "title": request.form.get("title").strip(), "type": content_type,
                 "poster": request.form.get("poster").strip() or PLACEHOLDER_POSTER,
                 "backdrop": request.form.get("backdrop").strip() or None,
-                "overview": request.form.get("overview").strip(), "language": request.form.get("language").strip() or None,
+                "overview": request.form.get("overview").strip(), 
+                "screenshots": screenshots_list,
+                "language": request.form.get("language").strip() or None,
                 "genres": [g.strip() for g in request.form.get("genres", "").split(',') if g.strip()],
                 "categories": request.form.getlist("categories"), "episodes": [], "links": [], "season_packs": [], "manual_links": [],
-                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+                "view_count": 0  # ## VIEW COUNT CHANGE: Initialize with 0 ##
             }
             tmdb_id = request.form.get("tmdb_id")
             if tmdb_id:
@@ -1492,11 +1601,15 @@ def edit_movie(movie_id):
     
     if request.method == "POST":
         content_type = request.form.get("content_type")
+        screenshots_text = request.form.get("screenshots", "").strip()
+        screenshots_list = [url.strip() for url in screenshots_text.splitlines() if url.strip()]
         update_data = {
             "title": request.form.get("title").strip(), "type": content_type,
             "poster": request.form.get("poster").strip() or PLACEHOLDER_POSTER,
             "backdrop": request.form.get("backdrop").strip() or None,
-            "overview": request.form.get("overview").strip(), "language": request.form.get("language").strip() or None,
+            "overview": request.form.get("overview").strip(), 
+            "screenshots": screenshots_list,
+            "language": request.form.get("language").strip() or None,
             "genres": [g.strip() for g in request.form.get("genres").split(',') if g.strip()],
             "categories": request.form.getlist("categories"), "updated_at": datetime.utcnow()
         }
