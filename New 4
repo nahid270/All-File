@@ -2,7 +2,7 @@ import os
 import sys
 import requests
 import json
-from flask import Flask, render_template_string, request, redirect, url_for, Response, jsonify
+from flask import Flask, render_template_string, request, redirect, url_for, Response, jsonify, flash
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from functools import wraps
@@ -22,16 +22,13 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID")
 WEBSITE_URL = os.environ.get("WEBSITE_URL") 
 
-# --- Validate Environment Variables ---
-if not all([MONGO_URI, TMDB_API_KEY, ADMIN_USERNAME, ADMIN_PASSWORD]):
-    print("FATAL: One or more required environment variables are missing.")
-    if os.environ.get('VERCEL') != '1':
-        sys.exit(1)
-
 # --- App Initialization ---
 PLACEHOLDER_POSTER = "https://via.placeholder.com/400x600.png?text=Poster+Not+Found"
 ITEMS_PER_PAGE = 20
 app = Flask(__name__)
+# For flash messages
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "a_super_secret_key_for_flash_messages")
+
 
 # --- Authentication ---
 def check_auth(username, password):
@@ -91,7 +88,7 @@ except Exception as e:
     if os.environ.get('VERCEL') != '1':
         sys.exit(1)
 
-# --- [NEW] Helper function to format series info ---
+# --- Helper function to format series info ---
 def format_series_info(episodes, season_packs):
     """Generates a string like S01 [EP01-10 ADDED] & S02 [COMPLETE SEASON ADDED]"""
     info_parts = []
@@ -134,13 +131,11 @@ def send_telegram_notification(movie_data, content_id, notification_type='new', 
     try:
         movie_url = f"{WEBSITE_URL}/movie/{str(content_id)}"
         
-        # Build title with year
         title_with_year = movie_data.get('title', 'N/A')
         if movie_data.get('release_date'):
             year = movie_data['release_date'].split('-')[0]
             title_with_year += f" ({year})"
         
-        # Add series info if available
         if series_update_info:
             title_with_year += f" {series_update_info}"
 
@@ -381,7 +376,6 @@ index_html = """
   .hero-slider .swiper-pagination-bullet { background: rgba(255, 255, 255, 0.5); width: 8px; height: 8px; opacity: 0.7; transition: all 0.2s ease; }
   .hero-slider .swiper-pagination-bullet-active { background: var(--text-light); width: 24px; border-radius: 5px; opacity: 1; }
   
-  /* --- [START] OTT PLATFORM SLIDER STYLES --- */
   .platform-section { margin: 40px 0; overflow: hidden; }
   .platform-slider .swiper-slide { width: 100px; }
   .platform-item { display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: var(--text-dark); transition: transform 0.2s ease, color 0.2s ease; }
@@ -389,7 +383,6 @@ index_html = """
   .platform-logo-wrapper { width: 80px; height: 80px; border-radius: 50%; background-color: #fff; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #444; }
   .platform-logo-wrapper img { max-width: 70%; max-height: 70%; object-fit: contain; }
   .platform-item span { font-weight: 500; font-size: 0.8rem; text-align: center; }
-  /* --- [END] OTT PLATFORM SLIDER STYLES --- */
 
   .category-section { margin: 30px 0; }
   .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
@@ -613,7 +606,6 @@ index_html = """
     </section>
     {% endif %}
 
-    <!-- ================== START: OTT PLATFORM SLIDER ================== -->
     {% if all_ott_platforms %}
     <section class="platform-section container">
         <div class="swiper platform-slider">
@@ -632,7 +624,6 @@ index_html = """
         </div>
     </section>
     {% endif %}
-    <!-- ================== END: OTT PLATFORM SLIDER ================== -->
 
     <div class="container">
       {% macro render_grid_section(title, movies_list, cat_name) %}
@@ -793,23 +784,22 @@ detail_html = """
       margin-right: 8px; 
   }
   
-  /* --- [START] FINAL HERO SECTION STYLES --- */
   .hero-section {
       position: relative;
       width: 100%;
       max-width: 900px;
-      margin: 20px auto 80px; /* Increased bottom margin for hanging poster */
+      margin: 20px auto 80px;
       aspect-ratio: 16 / 9;
       background-size: cover;
       background-position: center;
       border-radius: 12px;
       box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
-      overflow: visible; /* Allows poster to hang outside */
+      overflow: visible;
   }
   .hero-poster {
       position: absolute;
       left: 30px;
-      bottom: -60px; /* Pushes the poster below the container */
+      bottom: -60px;
       height: 95%;
       aspect-ratio: 2 / 3;
       object-fit: cover;
@@ -856,7 +846,6 @@ detail_html = """
       color: var(--lime-accent);
       display: block;
   }
-  /* --- [END] FINAL HERO SECTION STYLES --- */
 
   .tabs-nav { display: flex; justify-content: center; gap: 10px; margin: 20px 0 30px; }
   .tab-link { flex: 1; max-width: 200px; padding: 12px; background-color: var(--card-bg); border: none; color: var(--text-dark); font-weight: 600; font-size: 1rem; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
@@ -870,7 +859,6 @@ detail_html = """
   .link-group h3, .episode-list h3 { font-size: 1.2rem; font-weight: 500; margin-bottom: 10px; color: var(--text-dark); text-align: center; }
   .action-btn { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 15px 20px; border-radius: 8px; font-weight: 500; font-size: 1rem; color: white; background: linear-gradient(90deg, var(--g-1), var(--g-2), var(--g-1)); background-size: 200% 100%; transition: background-position 0.5s ease; }
   .action-btn:hover { background-position: 100% 0; }
-  .action-btn i { color: white; }
   .category-section { margin: 50px 0; }
   .category-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 20px; }
   .movie-carousel .swiper-slide { width: 140px; }
@@ -890,7 +878,6 @@ detail_html = """
         <i class="fas fa-arrow-left"></i> Go Back
     </a>
     
-    <!-- FINAL HERO SECTION -->
     <div class="hero-section" style="background-image: url('{{ movie.backdrop or movie.poster or 'https://via.placeholder.com/1280x720.png?text=No+Backdrop' }}');">
         <img src="{{ movie.poster or 'https://via.placeholder.com/400x600.png?text=No+Image' }}" alt="{{ movie.title }}" class="hero-poster">
         
@@ -903,7 +890,6 @@ detail_html = """
         {% endif %}
     </div>
 
-    <!-- TITLE SECTION -->
     <div class="content-title-section">
         <h1 class="main-title">
             {{ movie.title }}
@@ -1234,7 +1220,6 @@ admin_html = """
 <div class="admin-container">
     <header class="admin-header"><h1>Admin Panel</h1><a href="{{ url_for('home') }}" target="_blank">View Site</a></header>
     
-    <!-- ================== START: TOP SECTION (DAILY USE) ================== -->
     <h2><i class="fas fa-tachometer-alt"></i> At a Glance</h2>
     <div class="dashboard-stats">
         <div class="stat-card"><h3>Total Content</h3><p>{{ stats.total_content }}</p></div>
@@ -1342,9 +1327,7 @@ admin_html = """
         </table>
     </div>
     <hr>
-    <!-- ================== END: TOP SECTION (DAILY USE) ================== -->
-
-    <!-- ================== START: BOTTOM SECTION (LESS FREQUENT USE) ================== -->
+    
     <div class="management-section">
         <div style="flex: 1; min-width: 300px;">
             <h2><i class="fas fa-tags"></i> Category Management</h2>
@@ -1394,7 +1377,6 @@ admin_html = """
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Ad Settings</button>
     </form>
     <hr>
-    <!-- ================== END: BOTTOM SECTION (LESS FREQUENT USE) ================== -->
 
 </div>
 <div class="modal-overlay" id="search-modal"><div class="modal-content"><div class="modal-header"><h2>Select Content</h2><button class="modal-close" onclick="closeModal()">&times;</button></div><div class="modal-body" id="search-results"></div></div></div>
@@ -1444,6 +1426,7 @@ admin_html = """
 </body></html>
 """
 
+# === UPDATED HTML TEMPLATE ===
 edit_html = """
 <!DOCTYPE html>
 <html lang="en">
@@ -1540,16 +1523,31 @@ edit_html = """
     <div class="update-options">
         <div class="checkbox-group">
             <label>
-                <input type="checkbox" name="send_notification" checked>
+                <input type="checkbox" name="send_notification" id="send_notification_checkbox" checked>
                 Send Update Notification to Telegram?
             </label>
+        </div>
+        <div class="form-group" id="notification_text_container" style="display: none;">
+            <label for="custom_notification_text">Custom Notification Text (Optional):</label>
+            <input type="text" name="custom_notification_text" id="custom_notification_text" placeholder="Auto-generated if left empty. e.g., S01 [EP 01-10 ADDED]">
         </div>
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Update Content</button>
     </div>
   </form>
 </div>
 <script>
-    function toggleFields() { var isSeries = document.getElementById('content_type').value === 'series'; document.getElementById('episode_fields').style.display = isSeries ? 'block' : 'none'; document.getElementById('movie_fields').style.display = isSeries ? 'none' : 'block'; }
+    function toggleFields() { 
+        var isSeries = document.getElementById('content_type').value === 'series'; 
+        document.getElementById('episode_fields').style.display = isSeries ? 'block' : 'none'; 
+        document.getElementById('movie_fields').style.display = isSeries ? 'none' : 'block'; 
+        const notificationContainer = document.getElementById('notification_text_container');
+        const sendNotificationCheckbox = document.getElementById('send_notification_checkbox');
+        if (isSeries && sendNotificationCheckbox.checked) {
+            notificationContainer.style.display = 'block';
+        } else {
+            notificationContainer.style.display = 'none';
+        }
+    }
     function addEpisodeField() { const c = document.getElementById('episodes_container'); const d = document.createElement('div'); d.className = 'dynamic-item'; d.innerHTML = `<button type="button" onclick="this.parentElement.remove()" class="btn btn-danger">X</button><div class="form-group"><label>Season:</label><input type="number" name="episode_season[]" value="1" required></div><div class="form-group"><label>Episode:</label><input type="number" name="episode_number[]" required></div><div class="form-group"><label>Title:</label><input type="text" name="episode_title[]"></div><div class="form-group"><label>Download/Watch Link:</label><input type="url" name="episode_watch_link[]" required></div>`; c.appendChild(d); }
     function addSeasonPackField() { const container = document.getElementById('season_packs_container'); const newItem = document.createElement('div'); newItem.className = 'dynamic-item'; newItem.innerHTML = `<button type="button" onclick="this.parentElement.remove()" class="btn btn-danger">X</button><div class="season-pack-item"><div class="form-group"><label>Season No.</label><input type="number" name="season_pack_number[]" value="1" required></div><div class="form-group"><label>Watch Link</label><input type="url" name="season_pack_watch_link[]"></div><div class="form-group"><label>Download Link</label><input type="url" name="season_pack_download_link[]"></div></div>`; container.appendChild(newItem); }
     function addManualLinkField() { const container = document.getElementById('manual_links_container'); const newItem = document.createElement('div'); newItem.className = 'dynamic-item'; newItem.innerHTML = `<button type="button" onclick="this.parentElement.remove()" class="btn btn-danger">X</button><div class="link-pair"><div class="form-group"><label>Button Name</label><input type="text" name="manual_link_name[]" placeholder="e.g., 480p G-Drive" required></div><div class="form-group"><label>Link URL</label><input type="url" name="manual_link_url[]" placeholder="https://..." required></div></div>`; container.appendChild(newItem); }
@@ -1577,7 +1575,83 @@ edit_html = """
         }
     }
 
-    document.addEventListener('DOMContentLoaded', toggleFields);
+    function formatSeriesInfoJS(episodes, seasonPacks) {
+        let infoParts = [];
+        if (seasonPacks && seasonPacks.length > 0) {
+            const sortedPacks = seasonPacks.sort((a, b) => a.season_number - b.season_number);
+            sortedPacks.forEach(pack => {
+                const seasonNum = String(pack.season_number).padStart(2, '0');
+                infoParts.push(`S${seasonNum} [COMPLETE SEASON]`);
+            });
+        }
+        if (episodes && episodes.length > 0) {
+            const episodesBySeason = {};
+            episodes.forEach(ep => {
+                if (!episodesBySeason[ep.season]) episodesBySeason[ep.season] = [];
+                episodesBySeason[ep.season].push(ep.episode_number);
+            });
+            Object.keys(episodesBySeason).sort((a, b) => a - b).forEach(season => {
+                const epNums = episodesBySeason[season].sort((a, b) => a - b);
+                if (epNums.length === 0) return;
+                const seasonNum = String(season).padStart(2, '0');
+                const firstEp = String(epNums[0]).padStart(2, '0');
+                const lastEp = String(epNums[epNums.length - 1]).padStart(2, '0');
+                const epRange = (firstEp === lastEp) ? `EP${firstEp}` : `EP${firstEp}-${lastEp}`;
+                infoParts.push(`S${seasonNum} [${epRange} ADDED]`);
+            });
+        }
+        return infoParts.join(' & ');
+    }
+
+    function autoGenerateNotificationText() {
+        if (document.getElementById('content_type').value !== 'series') {
+            document.getElementById('custom_notification_text').value = '';
+            return;
+        }
+        const oldEpisodes = JSON.parse('{{ movie.episodes|tojson|safe }}' || '[]');
+        const oldSeasonPacks = JSON.parse('{{ movie.season_packs|tojson|safe }}' || '[]');
+        const oldEpIds = new Set(oldEpisodes.map(ep => `${ep.season}-${ep.episode_number}`));
+        const oldPackIds = new Set(oldSeasonPacks.map(p => p.season_number));
+        const currentEps = [];
+        document.querySelectorAll('#episodes_container .dynamic-item').forEach(item => {
+            const season = item.querySelector('[name="episode_season[]"]').value;
+            const episode = item.querySelector('[name="episode_number[]"]').value;
+            if (season && episode) currentEps.push({ season: parseInt(season), episode_number: parseInt(episode) });
+        });
+        const currentPacks = [];
+        document.querySelectorAll('#season_packs_container .dynamic-item').forEach(item => {
+            const season = item.querySelector('[name="season_pack_number[]"]').value;
+            if (season) currentPacks.push({ season_number: parseInt(season) });
+        });
+        const newlyAddedEps = currentEps.filter(ep => !oldEpIds.has(`${ep.season}-${ep.episode_number}`));
+        const newlyAddedPacks = currentPacks.filter(p => !oldPackIds.has(p.season_number));
+        const generatedText = formatSeriesInfoJS(newlyAddedEps, newlyAddedPacks);
+        document.getElementById('custom_notification_text').value = generatedText;
+    }
+
+    function setupMutationObserver() {
+        const episodesContainer = document.getElementById('episodes_container');
+        const packsContainer = document.getElementById('season_packs_container');
+        const observerCallback = (mutationsList, observer) => {
+            for(const mutation of mutationsList) { if (mutation.type === 'childList') autoGenerateNotificationText(); }
+        };
+        const observer = new MutationObserver(observerCallback);
+        const config = { childList: true };
+        if (episodesContainer) observer.observe(episodesContainer, config);
+        if (packsContainer) observer.observe(packsContainer, config);
+        document.body.addEventListener('input', (event) => {
+            if (event.target.matches('[name="episode_season[]"], [name="episode_number[]"], [name="season_pack_number[]"]')) {
+                autoGenerateNotificationText();
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleFields();
+        setupMutationObserver();
+        const checkbox = document.getElementById('send_notification_checkbox');
+        checkbox.addEventListener('change', toggleFields);
+    });
 </script>
 </body></html>
 """
@@ -1706,6 +1780,9 @@ def request_content():
         extra_info = request.form.get('extra_info', '').strip()
         if content_name:
             requests_collection.insert_one({"name": content_name, "info": extra_info, "status": "Pending", "created_at": datetime.utcnow()})
+            flash('Your request has been submitted successfully!', 'success')
+        else:
+            flash('Content name is required.', 'error')
         return redirect(url_for('request_content'))
     return render_template_string(request_html)
 
@@ -1720,6 +1797,7 @@ def wait_page():
 def admin():
     if request.method == "POST":
         form_action = request.form.get("form_action")
+        
         if form_action == "update_ads":
             ad_settings_data = {"ad_header": request.form.get("ad_header"), "ad_body_top": request.form.get("ad_body_top"), "ad_footer": request.form.get("ad_footer"), "ad_list_page": request.form.get("ad_list_page"), "ad_detail_page": request.form.get("ad_detail_page"), "ad_wait_page": request.form.get("ad_wait_page")}
             settings.update_one({"_id": "ad_config"}, {"$set": ad_settings_data}, upsert=True)
@@ -1780,7 +1858,16 @@ def admin():
     categories_list = list(categories_collection.find().sort("name", 1))
     ott_list = list(ott_collection.find().sort("name", 1))
     ad_settings_data = settings.find_one({"_id": "ad_config"}) or {}
-    return render_template_string(admin_html, content_list=content_list, stats=stats, requests_list=requests_list, ad_settings=ad_settings_data, categories_list=categories_list, ott_list=ott_list)
+    
+    return render_template_string(
+        admin_html, 
+        content_list=content_list, 
+        stats=stats, 
+        requests_list=requests_list, 
+        ad_settings=ad_settings_data, 
+        categories_list=categories_list, 
+        ott_list=ott_list
+    )
 
 @app.route('/admin/category/delete/<cat_id>')
 @requires_auth
@@ -1811,13 +1898,17 @@ def delete_request(req_id):
     except: pass
     return redirect(url_for('admin'))
 
+# === UPDATED FUNCTION ===
 @app.route('/edit_movie/<movie_id>', methods=["GET", "POST"])
 @requires_auth
 def edit_movie(movie_id):
-    try: obj_id = ObjectId(movie_id)
-    except: return "Invalid ID", 400
+    try:
+        obj_id = ObjectId(movie_id)
+    except:
+        return "Invalid ID", 400
     movie_obj = movies.find_one({"_id": obj_id})
-    if not movie_obj: return "Movie not found", 404
+    if not movie_obj:
+        return "Movie not found", 404
     
     if request.method == "POST":
         content_type = request.form.get("content_type")
@@ -1825,6 +1916,7 @@ def edit_movie(movie_id):
         screenshots_list = [url.strip() for url in screenshots_text.splitlines() if url.strip()]
         is_completed = 'is_completed' in request.form
         ott_platform = request.form.get("ott_platform")
+        
         update_data = {
             "title": request.form.get("title").strip(), "type": content_type,
             "poster": request.form.get("poster").strip() or PLACEHOLDER_POSTER,
@@ -1836,31 +1928,34 @@ def edit_movie(movie_id):
             "categories": request.form.getlist("categories"), "updated_at": datetime.utcnow(),
             "is_completed": is_completed
         }
+        
         names, urls = request.form.getlist('manual_link_name[]'), request.form.getlist('manual_link_url[]')
         update_data["manual_links"] = [{"name": names[i].strip(), "url": urls[i].strip()} for i in range(len(names)) if names[i] and urls[i]]
         update_query = {"$set": update_data}
         
-        # --- [NEW] Logic to detect new episodes/packs for notification ---
         series_update_info_str = None
+        custom_notification_text = request.form.get("custom_notification_text", "").strip()
+
         if content_type == "series":
-            # Get new episodes and packs from form
             sp_nums, sp_w, sp_d = request.form.getlist('season_pack_number[]'), request.form.getlist('season_pack_watch_link[]'), request.form.getlist('season_pack_download_link[]')
             update_data['season_packs'] = [{"season_number": int(sp_nums[i]), "watch_link": sp_w[i].strip() or None, "download_link": sp_d[i].strip() or None} for i in range(len(sp_nums)) if sp_nums[i]]
             s, n, t, l = request.form.getlist('episode_season[]'), request.form.getlist('episode_number[]'), request.form.getlist('episode_title[]'), request.form.getlist('episode_watch_link[]')
             update_data["episodes"] = [{"season": int(s[i]), "episode_number": int(n[i]), "title": t[i].strip(), "watch_link": l[i].strip()} for i in range(len(s)) if s[i] and n[i] and l[i]]
             update_query.setdefault("$unset", {})["links"] = ""
 
-            # Compare old vs new to find what was added
-            old_ep_ids = {(ep.get('season'), ep.get('episode_number')) for ep in movie_obj.get('episodes', [])}
-            old_pack_ids = {p.get('season_number') for p in movie_obj.get('season_packs', [])}
-            
-            newly_added_eps = [ep for ep in update_data["episodes"] if (ep.get('season'), ep.get('episode_number')) not in old_ep_ids]
-            newly_added_packs = [p for p in update_data["season_packs"] if p.get('season_number') not in old_pack_ids]
-            
-            if newly_added_eps or newly_added_packs:
-                series_update_info_str = format_series_info(newly_added_eps, newly_added_packs)
+            if custom_notification_text:
+                series_update_info_str = custom_notification_text
+            else:
+                old_ep_ids = {(ep.get('season'), ep.get('episode_number')) for ep in movie_obj.get('episodes', [])}
+                old_pack_ids = {p.get('season_number') for p in movie_obj.get('season_packs', [])}
+                
+                newly_added_eps = [ep for ep in update_data["episodes"] if (ep.get('season'), ep.get('episode_number')) not in old_ep_ids]
+                newly_added_packs = [p for p in update_data["season_packs"] if p.get('season_number') not in old_pack_ids]
+                
+                if newly_added_eps or newly_added_packs:
+                    series_update_info_str = format_series_info(newly_added_eps, newly_added_packs)
 
-        else: # It's a movie
+        else: # Movie
             qualities = ["480p", "720p", "1080p", "BLU-RAY"]
             update_data["links"] = [{"quality": q, "watch_url": request.form.get(f"watch_link_{q}"), "download_url": request.form.get(f"download_link_{q}")} for q in qualities if request.form.get(f"watch_link_{q}") or request.form.get(f"download_link_{q}")]
             update_query.setdefault("$unset", {})["episodes"] = ""
@@ -1888,6 +1983,7 @@ def edit_movie(movie_id):
     categories_list = list(categories_collection.find().sort("name", 1))
     ott_list = list(ott_collection.find().sort("name", 1))
     return render_template_string(edit_html, movie=movie_obj, categories_list=categories_list, ott_list=ott_list)
+
 
 @app.route('/delete_movie/<movie_id>')
 @requires_auth
