@@ -1,21 +1,3 @@
-অবশ্যই! আপনার অনুরোধটি আমি বুঝতে পেরেছি এবং সম্পূর্ণ ফাইনাল কোডটি প্রস্তুত করেছি।
-
-এই কোডটিতে আপনার চাওয়া অনুযায়ী "Join Our Community" সেকশনটি হোমপেজের সকল মুভি লিস্টের শেষে এবং ফুটারের (Disclaimer, About Us ইত্যাদি) ঠিক আগে যোগ করা হয়েছে। আপনাকে শুধু কোডের উপরের দিকে `COMMUNITY_LINKS` নামের অংশে আপনার টেলিগ্রাম চ্যানেলগুলোর লিংক বসিয়ে দিতে হবে।
-
-আর কোনো কিছু পরিবর্তন করার প্রয়োজন নেই। এটিই আপনার জন্য সম্পূর্ণ এবং চূড়ান্ত সমাধান।
-
-### ব্যবহারের নির্দেশিকা:
-
-1.  আপনার বর্তমান `app.py` ফাইলের ভিতরের সমস্ত কোড মুছে ফেলুন।
-2.  নিচের সম্পূর্ণ কোডটি কপি করুন এবং আপনার `app.py` ফাইলে পেস্ট করুন।
-3.  কোডের উপরের দিকে `COMMUNITY_LINKS` অংশে `url` এর জায়গায় আপনার আসল টেলিগ্রাম চ্যানেলগুলোর লিংক বসিয়ে দিন।
-4.  ফাইলটি সেভ করে আপনার অ্যাপ্লিকেশনটি রান করুন।
-
----
-
-### আপনার জন্য সম্পূর্ণ ফাইনাল `app.py` কোড:
-
-```python
 import os
 import sys
 import requests
@@ -52,21 +34,21 @@ COMMUNITY_LINKS = [
         'subtitle': 'Get notified for every new upload',
         'icon_class': 'fas fa-bell',
         'icon_color': '#3b9eff',
-        'url': 'https://t.me/your_alerts_channel_link'  # <<== আপনার এলার্ট চ্যানেলের লিংক দিন
+        'url': 'https://t.me/+YhqvLHXHdIViNTRl'  # <<== আপনার এলার্ট চ্যানেলের লিংক দিন
     },
     {
         'title': 'Join Request Group',
         'subtitle': 'Request your favorite content',
         'icon_class': 'fas fa-comments',
         'icon_color': '#ffc107',
-        'url': 'https://t.me/your_request_group_link'  # <<== আপনার রিকুয়েস্ট গ্রুপের লিংক দিন
+        'url': 'https://t.me/Movie_Request_Group_23'  # <<== আপনার রিকুয়েস্ট গ্রুপের লিংক দিন
     },
     {
         'title': 'Backup Channel',
         'subtitle': 'Join for future updates',
         'icon_class': 'fas fa-shield-alt',
         'icon_color': '#28a745',
-        'url': 'https://t.me/your_backup_channel_link' # <<== আপনার ব্যাকআপ চ্যানেলের লিংক দিন
+        'url': 'https://t.me/+60goZWp-FpkxNzVl' # <<== আপনার ব্যাকআপ চ্যানেলের লিংক দিন
     }
 ]
 
@@ -2697,4 +2679,3 @@ def api_search():
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 3000))
     app.run(debug=True, host='0.0.0.0', port=port)
-```
