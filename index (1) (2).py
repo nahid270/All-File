@@ -11,11 +11,11 @@ import math # Added for pagination calculation
 import json # <--- এই লাইনটি যোগ করুন
 
 # --- Environment Variables ---
-MONGO_URI = os.environ.get("MONGO_URI", "")
-TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
-WEBSITE_NAME = os.environ.get("WEBSITE_NAME", "PmwBD")
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://mesohas358:mesohas358@cluster0.6kxy1vc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "7dc544d9253bccc3cfecc1c677f69819")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "Nahid270")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Nahid270")
+WEBSITE_NAME = os.environ.get("WEBSITE_NAME", "CineZoneBD")
 
 # --- START: NEW TELEGRAM SETTINGS (এই অংশটি যোগ করুন) ---
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "7118509903:AAEW56bKIJK29Wynt95GlXKTsBnS_ftivyI")
@@ -1305,15 +1305,15 @@ body.light-mode .main-footer {
         <div class="footer-column community-section">
             <h4 class="footer-column-title">Join Our Community</h4>
             <div class="telegram-buttons-container">
-                <a href="https://t.me/+Uj3tb0Qpr59iOTM1" target="_blank" class="telegram-button notification">
+                <a href="https://t.me/+YhqvLHXHdIViNTRl" target="_blank" class="telegram-button notification">
                     <i class="fas fa-bell"></i>
                     <span><strong>New Content Alerts</strong><small>Get notified for every new upload</small></span>
                 </a>
-                <a href="https://t.me/+PD1WvVZzW6FlODZl" target="_blank" class="telegram-button request">
+                <a href="https://t.me/+YhqvLHXHdIViNTRl" target="_blank" class="telegram-button request">
                     <i class="fas fa-comments"></i>
                     <span><strong>Join Request Group</strong><small>Request your favorite content</small></span>
                 </a>
-                <a href="https://t.me/PrimeCineZone" target="_blank" class="telegram-button backup">
+                <a href="https://t.me/TGLinkBase" target="_blank" class="telegram-button backup">
                     <i class="fas fa-shield-alt"></i>
                     <span><strong>Backup Channel</strong><small>Join for future updates</small></span>
                 </a>
