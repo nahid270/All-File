@@ -7,6 +7,7 @@ import sys
 import re
 import json
 import requests
+import urllib3
 from threading import Thread
 import logging
 
@@ -19,6 +20,9 @@ from pyrogram.types import (
 )
 from flask import Flask
 from dotenv import load_dotenv
+
+# --- DISABLE SSL WARNINGS (CRITICAL FIX FOR DPASTE) ---
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- Basic Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -90,11 +94,66 @@ def load_promo_config():
         except (IOError, json.JSONDecodeError) as e:
             logger.warning(f"⚠️ Error loading promo config: {e}")
 
+# ---- STRICT DPASTE FUNCTION (WITH SSL BYPASS) ----
+def create_paste_link(content: str):
+    """
+    Generates a link using ONLY dpaste.com.
+    FIX: verify=False is used to bypass SSL errors (Connection not private).
+    """
+    if not content:
+        return None
+
+    # Using User-Agent to look like a real browser
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    try:
+        # We try https first with verify=False
+        response = requests.post(
+            "https://dpaste.com/api/",
+            data={
+                "content": content,
+                "syntax": "html",
+                "expiry_days": 14, 
+                "title": "Blogger Code"
+            },
+            headers=headers,
+            timeout=30,
+            verify=False  # <--- FORCE CONNECTION ignoring SSL errors
+        )
+        
+        if response.status_code == 201 or response.status_code == 200:
+            return response.text.strip()
+            
+    except Exception as e:
+        logger.error(f"Dpaste HTTPS failed: {e}")
+        
+        # Last Resort: Try HTTP if HTTPS fails completely
+        try:
+            response = requests.post(
+                "http://dpaste.com/api/",
+                data={
+                    "content": content,
+                    "syntax": "html",
+                    "expiry_days": 14, 
+                    "title": "Blogger Code"
+                },
+                headers=headers,
+                timeout=30
+            )
+            if response.status_code == 201 or response.status_code == 200:
+                return response.text.strip()
+        except Exception as e2:
+            logger.error(f"Dpaste HTTP failed: {e2}")
+
+    return None
+
 # ---- FLASK APP FOR KEEP-ALIVE ----
 app = Flask(__name__)
 @app.route('/')
 def home():
-    return "✅ Final Bot (Text Code Version) is running!"
+    return "✅ Final Bot (Dpaste Force Fix) is running!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -148,30 +207,20 @@ def get_tmdb_details(media_type: str, media_id: int):
         return None
 
 def extract_tmdb_id(query: str):
-    """
-    Extracts media type and ID from TMDB URL or converts IMDb ID/Link to TMDB ID.
-    Updated to handle full IMDb URLs.
-    """
     query = query.strip()
-    
-    # 1. Check for TMDB URL (e.g., https://www.themoviedb.org/movie/550)
     tmdb_url_pattern = r"themoviedb\.org/(movie|tv)/(\d+)"
     match = re.search(tmdb_url_pattern, query)
     if match:
         return match.group(1), int(match.group(2))
 
-    # 2. Check for IMDb ID (Matches "tt1234567" inside any string or URL)
-    # The regex r"(tt\d+)" finds 'tt' followed by digits anywhere in the text
     imdb_match = re.search(r"(tt\d+)", query)
-    
     if imdb_match:
-        imdb_id = imdb_match.group(1) # Extracted ID like tt8178634
+        imdb_id = imdb_match.group(1)
         try:
             find_url = f"https://api.themoviedb.org/3/find/{imdb_id}?api_key={TMDB_API_KEY}&external_source=imdb_id"
             response = requests.get(find_url, timeout=10)
             response.raise_for_status()
             data = response.json()
-            
             if data.get("movie_results"):
                 return "movie", data["movie_results"][0]["id"]
             elif data.get("tv_results"):
@@ -180,7 +229,6 @@ def extract_tmdb_id(query: str):
             logger.error(f"Error finding IMDb ID: {e}")
             return None, None
 
-    # 3. Check for direct ID usage (e.g., movie/550)
     if "/" in query:
         parts = query.split("/")
         if len(parts) == 2 and parts[0] in ["movie", "tv"] and parts[1].isdigit():
@@ -352,7 +400,6 @@ def generate_html(data: dict, links: list, user_id: int):
     return final_html
 
 def generate_filedl_html(title, links_list):
-    # CSS Styles - Simplified for Uniformity
     css = """
     <style>
         .fdl-container { font-family: 'Segoe UI', sans-serif; text-align: center; max-width: 600px; margin: 0 auto; padding: 20px; background: #fff; }
@@ -361,7 +408,7 @@ def generate_filedl_html(title, links_list):
         .fdl-btn {
             display: inline-block; padding: 12px 15px; border-radius: 4px; text-decoration: none;
             color: white !important; font-weight: 500; font-size: 14px; flex: 1 1 45%; 
-            background-color: #007bff; /* Standard Blue for all buttons */
+            background-color: #007bff;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; text-align: center; border: none; margin-bottom: 5px;
         }
         .fdl-btn:hover { opacity: 0.9; transform: translateY(-1px); background-color: #0056b3; }
@@ -456,7 +503,6 @@ def generate_image(data: dict):
 @bot.on_message(filters.command("start") & filters.private)
 async def start_command(client, message: Message):
     user_conversations.pop(message.from_user.id, None)
-    bot_username = (await client.get_me()).username
     await message.reply_text(
         f"👋 **Welcome to the Movie & Series Bot!**\n\n"
         f"**New:** Use `/post` to create content easily!\n\n"
@@ -561,22 +607,18 @@ async def set_ad_link_command(_, message: Message):
     else:
         await message.reply_text("⚠️ **Usage:** `/setadlink https://your-ad-link.com`")
 
-# ---- NEW FILEDL COMMAND HANDLERS (STEP-BY-STEP) ----
+# ---- FILEDL COMMAND HANDLERS (UPDATED TO USE LINK) ----
 @bot.on_message(filters.command("filedl") & filters.private)
 async def filedl_command(client, message: Message):
     user_id = message.from_user.id
-    user_conversations.pop(user_id, None) # Clear old session
+    user_conversations.pop(user_id, None)
     
-    # Initialize session
     user_conversations[user_id] = {
         "state": "filedl_wait_title", 
         "data": {"links": []} 
     }
     
-    await message.reply_text(
-        "📂 **FilesDL Post Creator**\n\n"
-        "Please send the **Title** of the post."
-    )
+    await message.reply_text("📂 **FilesDL Post Creator**\n\nPlease send the **Title** of the post.")
 
 async def filedl_title_handler(client, message: Message):
     user_id = message.from_user.id
@@ -585,77 +627,63 @@ async def filedl_title_handler(client, message: Message):
     user_conversations[user_id]["data"]["title"] = title
     user_conversations[user_id]["state"] = "filedl_wait_btn_name"
     
-    await message.reply_text(
-        f"✅ Title set: **{title}**\n\n"
-        "👉 Now enter **Button 1 Name**\n"
-        "(e.g., `Download 720p` or `Watch Online`)"
-    )
+    await message.reply_text(f"✅ Title: **{title}**\n\n👉 Now enter **Button 1 Name** (e.g. `Download 720p`)")
 
 async def filedl_name_handler(client, message: Message):
     user_id = message.from_user.id
     text = message.text.strip()
     
-    # Check if user wants to finish
     if text.upper() in ["DONE", "FINISH", "OK", "END", "SES"]:
         data = user_conversations[user_id]["data"]
         if not data["links"]:
-            await message.reply_text("❌ No buttons added. Add at least one.")
+            await message.reply_text("❌ No buttons added.")
             return
             
-        # Generate HTML
         final_html = generate_filedl_html(data["title"], data["links"])
         
-        # Send AS TEXT (Raw Code) instead of File
-        if len(final_html) < 4000:
+        await message.reply_text("⏳ Generating online link for your code...")
+        
+        # Call the new robust function
+        paste_link = create_paste_link(final_html)
+        
+        if paste_link:
             await message.reply_text(
-                f"✅ **Your HTML Code:**\n\n```html\n{final_html}\n```",
-                parse_mode=enums.ParseMode.MARKDOWN
+                "✅ **Code Generated Successfully!**\n\n"
+                "👇 Click below to View & Copy the code.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔗 View & Copy Code", url=paste_link)]
+                ])
             )
         else:
-             # Fallback to file if too long for Telegram message
             file_bytes = io.BytesIO(final_html.encode('utf-8'))
             file_bytes.name = "filesdl_code.html"
-            await message.reply_document(
-                document=file_bytes,
-                caption="✅ Code is too long for text, sending as file."
-            )
+            await message.reply_document(document=file_bytes, caption="⚠️ Link generation failed. Here is the file.")
 
-        # End Session
         user_conversations.pop(user_id, None)
         return
 
-    # Save name temporarily
     user_conversations[user_id]["temp_btn_name"] = text
     user_conversations[user_id]["state"] = "filedl_wait_btn_url"
     
-    await message.reply_text(
-        f"📝 Button: **{text}**\n\n"
-        f"🔗 Now send the **URL** for this button."
-    )
+    await message.reply_text(f"📝 Button: **{text}**\n🔗 Now send the **URL**.")
 
 async def filedl_url_handler(client, message: Message):
     user_id = message.from_user.id
     url = message.text.strip()
     
     if not (url.startswith("http://") or url.startswith("https://")):
-        await message.reply_text("⚠️ Invalid URL. Must start with http or https. Try again.")
+        await message.reply_text("⚠️ Invalid URL. Must start with http/https.")
         return
 
-    # Add to list
     btn_name = user_conversations[user_id]["temp_btn_name"]
     user_conversations[user_id]["data"]["links"].append({"label": btn_name, "url": url})
     
-    # Reset temp and go back to name input
     del user_conversations[user_id]["temp_btn_name"]
     user_conversations[user_id]["state"] = "filedl_wait_btn_name"
     
     total = len(user_conversations[user_id]["data"]["links"])
     
-    await message.reply_text(
-        f"✅ **Button Added!** (Total: {total})\n\n"
-        "👉 Enter **Next Button Name**.\n"
-        "OR type **DONE** to finish."
-    )
+    await message.reply_text(f"✅ **Button Added!** (Total: {total})\n\n👉 Enter **Next Button Name** OR type **DONE**.")
 
 # ---- CHANNEL POST CONFIGURATION COMMANDS ----
 def get_user_promo_config(user_id: int):
@@ -772,7 +800,7 @@ async def details_command_handler(client, message: Message):
     user_conversations[user_id] = {"details": details, "links": [], "state": "wait_custom_language"}
     await processing_msg.edit_text("✅ Details fetched!\n\n**🗣️ Please enter the language** (e.g., `Hindi Dubbed`).")
 
-# ---- NEW: /post COMMAND HANDLER (Detects Link/ID/Name) ----
+# ---- NEW: /post COMMAND HANDLER ----
 @bot.on_message(filters.command("post") & filters.private)
 async def post_command_handler(client, message: Message):
     if len(message.command) < 2:
@@ -787,15 +815,12 @@ async def post_command_handler(client, message: Message):
     query = message.text.split(" ", 1)[1].strip()
     processing_msg = await message.reply_text(f"🔎 **Processing:** `{query}`...")
 
-    # Step 1: Try to extract ID from Link or IMDb
     media_type, media_id = extract_tmdb_id(query)
 
-    # Step 2: If found (Link/ID), fetch details directly
     if media_type and media_id:
         details = get_tmdb_details(media_type, media_id)
         if details:
             user_id = message.from_user.id
-            # Start the conversation flow directly
             user_conversations[user_id] = {
                 "details": details, 
                 "links": [], 
@@ -809,13 +834,11 @@ async def post_command_handler(client, message: Message):
             await processing_msg.edit_text("❌ Failed to fetch details from TMDB.")
         return
 
-    # Step 3: If not a Link/ID, treat as a Search Name (Existing logic)
     results = search_tmdb(query)
     if not results:
         await processing_msg.edit_text(f"❌ No results found for **{query}**.")
         return
 
-    # Show Inline buttons for search results
     buttons = []
     for r in results:
         title = r.get("title") or r.get("name")
@@ -826,13 +849,11 @@ async def post_command_handler(client, message: Message):
     
     await processing_msg.edit_text("👇 **Select your content:**", reply_markup=InlineKeyboardMarkup(buttons))
 
-# ---- NEW: SELECTION CALLBACK HANDLER (From /post) ----
 @bot.on_callback_query(filters.regex("^sel_"))
 async def selection_callback(client, cb):
     try:
         _, media_type, media_id = cb.data.split("_")
         
-        # Fetch Details
         await cb.message.edit_text("⏳ Fetching details...")
         details = get_tmdb_details(media_type, int(media_id))
         
@@ -841,7 +862,6 @@ async def selection_callback(client, cb):
             return
 
         user_id = cb.from_user.id
-        # Initialize conversation
         user_conversations[user_id] = {
             "details": details, 
             "links": [], 
@@ -870,7 +890,6 @@ async def conversation_text_handler(client, message: Message):
     if convo := user_conversations.get(user_id):
         state = convo.get("state")
         
-        # --- FileDL Handlers (Step-by-Step) ---
         if state == "filedl_wait_title":
             await filedl_title_handler(client, message)
             return
@@ -880,7 +899,6 @@ async def conversation_text_handler(client, message: Message):
         elif state == "filedl_wait_btn_url":
             await filedl_url_handler(client, message)
             return
-        # --------------------------------------
 
         if state and state != "done":
             handlers = {
@@ -896,7 +914,6 @@ async def conversation_text_handler(client, message: Message):
             else:
                 await message.reply_text("I'm waiting for a specific input. Use /cancel to restart.")
     else:
-        # Fallback suggestion if no conversation is active
         await message.reply_text("Please use `/post Movie Name` or `/post URL` to start.")
 
 @bot.on_callback_query(filters.regex("^addlink_"))
@@ -1027,7 +1044,7 @@ async def send_channel_post(client, user_id: int, confirmation_chat_id: int):
         f"**💿 Quality:** {quality}\n"
         f"**⏳ Runtime:** {runtime_str}\n"
         f"**⭐ Rating:** {rating}\n"
-        f"⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+        f"⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
         f"👇 Click Below to Watch or Download on {promo_config['name']}! 👇"
     )
 
@@ -1049,7 +1066,7 @@ async def send_channel_post(client, user_id: int, confirmation_chat_id: int):
         await client.send_message(confirmation_chat_id, f"❌ Failed to send auto-post. **Error:** `{e}`")
 
 
-# ---- FINAL CONTENT GENERATION (ORCHESTRATOR) ----
+# ---- FINAL CONTENT GENERATION (UPDATED FOR NEW PASTE) ----
 async def generate_final_content(client, user_id, msg_to_edit: Message):
     if not (convo := user_conversations.get(user_id)): return
     
@@ -1064,7 +1081,7 @@ async def generate_final_content(client, user_id, msg_to_edit: Message):
     convo["state"] = "done"
     
     buttons = [
-        [InlineKeyboardButton("📝 Get Blogger HTML", callback_data=f"get_html_{user_id}")],
+        [InlineKeyboardButton("📝 Get Blogger Code (Link)", callback_data=f"get_html_{user_id}")],
         [InlineKeyboardButton("📄 Copy Caption", callback_data=f"get_caption_{user_id}")]
     ]
     if user_id in user_channels:
@@ -1097,19 +1114,26 @@ async def final_action_callback(client, cb):
     generated = convo["generated"]
     
     if action == "get_html":
-        await cb.answer("🔗 Generating link...", show_alert=False)
+        await cb.answer("🔗 Creating link (NekoBin/Hastebin)...", show_alert=False)
         html_code = generated.get("html", "")
-        try:
-            response = requests.post("https://dpaste.com/api/", data={"content": html_code, "syntax": "html"})
-            response.raise_for_status()
-            await cb.message.reply_text("✅ **Blogger Code Ready!**",
-                                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔗 Copy Code Here", url=response.text.strip())]]))
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error creating paste link: {e}")
-            await cb.message.reply_text("⚠️ **Error!** Sending as file instead.")
+        
+        # Call the NEW PASTE FUNCTION
+        paste_link = create_paste_link(html_code)
+        
+        if paste_link:
+            await cb.message.reply_text(
+                "✅ **Blogger Code Ready!**\n\n"
+                "👇 Click below to View & Copy the code.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔗 View & Copy Code", url=paste_link)]
+                ])
+            )
+        else:
+            await cb.message.reply_text("⚠️ **All Link Services Failed!** Sending file instead.")
             file_bytes = io.BytesIO(html_code.encode('utf-8'))
             file_bytes.name = f"{(convo['details'].get('title') or 'post').replace(' ', '_')}.html"
             await client.send_document(cb.message.chat.id, document=file_bytes)
+            
     elif action == "get_caption":
         await cb.answer()
         await client.send_message(cb.message.chat.id, generated["caption"])
