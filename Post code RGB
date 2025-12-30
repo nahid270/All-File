@@ -7,9 +7,11 @@ import json
 import time
 import asyncio
 import logging
-import random  # লিংক লটারির জন্য প্রয়োজন
+import random
 import aiohttp
 import requests 
+import numpy as np 
+import cv2 
 from threading import Thread
 
 # --- Third-party Library Imports ---
@@ -43,24 +45,25 @@ if not all([BOT_TOKEN, API_ID, API_HASH, TMDB_API_KEY]):
 # ====================================================================
 # 🔥 OWNER PROFIT SETUP (বটের ওনারের ইনকাম সোর্স)
 # ====================================================================
-# আপনার হাই সিপিএম (High CPM) ডাইরেক্ট লিংকগুলো এখানে বসান।
-# ইউজাররা যখন পোস্ট বানাবে, তখন এখান থেকে ১টি লিংক তাদের লিংকের আগে গোপনে বসে যাবে।
 OWNER_AD_LINKS = [
-    "https://www.effectivegatecpm.com/c90zejmfrg?key=45a67d2f1523ee6b3988c4cc8f764a35",  # ⬅️ এখানে আপনার ১ম ডাইরেক্ট লিংক বসান
-    "https://www.effectivegatecpm.com/q5cpmxwy44?key=075b9f116b4174922cadfae2d3291743",    # ⬅️ এখানে আপনার ২য় ডাইরেক্ট লিংক বসান
-    "https://www.effectivegatecpm.com/p4bm30ss3?key=8bb102e9258871570c79a9a90fa3cf9f"    # ⬅️ এখানে আপনার ৩য় ডাইরেক্ট লিংক বসান
+    "https://www.effectivegatecpm.com/c90zejmfrg?key=45a67d2f1523ee6b3988c4cc8f764a35",
+    "https://www.effectivegatecpm.com/q5cpmxwy44?key=075b9f116b4174922cadfae2d3291743",
+    "https://www.effectivegatecpm.com/p4bm30ss3?key=8bb102e9258871570c79a9a90fa3cf9f"
 ]
 
 # ---- GLOBAL STATE ----
 user_conversations = {}
 user_ad_links = {} 
-
 USER_AD_LINKS_FILE = "user_ad_links.json"
-# ডিফল্ট অ্যাড লিংকস (যদি ইউজার কোনো লিংক সেট না করে)
 DEFAULT_AD_LINKS = [
     "https://www.google.com", 
     "https://www.bing.com"
 ] 
+
+# ---- RESOURCES URLS (Fallback) ----
+URL_FONT = "https://raw.githubusercontent.com/mahabub81/bangla-fonts/master/Kalpurush.ttf"
+URL_MODEL = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml"
+
 
 # ---- ASYNC HTTP SESSION ----
 async def fetch_url(url, method="GET", data=None, headers=None, json_data=None):
@@ -110,7 +113,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "🤖 Bot is Running! Owner Profit Mode Active."
+    return "🤖 Bot is Running! (Face Detect & Profit Mode Active)"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -123,28 +126,65 @@ def keep_alive_pinger():
         except:
             time.sleep(600)
 
-# ---- FONTS ----
-try:
-    FONT_BOLD = ImageFont.truetype("Poppins-Bold.ttf", 32)
-    FONT_REGULAR = ImageFont.truetype("Poppins-Regular.ttf", 24)
-    FONT_SMALL = ImageFont.truetype("Poppins-Regular.ttf", 18)
-except:
-    logger.warning("⚠️ Fonts not found, using default system fonts.")
-    FONT_BOLD = FONT_REGULAR = FONT_SMALL = ImageFont.load_default()
+# ============================================================================
+# 🔥 AUTOMATIC RESOURCE DOWNLOADER (Updated Logic)
+# ============================================================================
+def setup_resources():
+    font_name = "kalpurush.ttf"
+    if not os.path.exists(font_name):
+        logger.info("⬇️ Downloading Bengali Font (kalpurush.ttf)...")
+        try:
+            r = requests.get(URL_FONT)
+            with open(font_name, "wb") as f:
+                f.write(r.content)
+            logger.info("✅ Font Downloaded Successfully!")
+        except Exception as e:
+            logger.error(f"❌ Font Download Failed: {e}")
 
-# ---- HELPER: UPLOAD IMAGE TO CATBOX ----
-def upload_to_catbox(file_path):
+    model_name = "haarcascade_frontalface_default.xml"
+    if not os.path.exists(model_name):
+        logger.info("⬇️ Downloading Face Detection Model...")
+        try:
+            r = requests.get(URL_MODEL)
+            with open(model_name, "wb") as f:
+                f.write(r.content)
+            logger.info("✅ Model Downloaded Successfully!")
+        except Exception as e:
+            logger.error(f"❌ Model Download Failed: {e}")
+
+setup_resources()
+
+# ---- FONT HELPER FUNCTION ----
+def get_font(size=60, bold=False):
+    try:
+        if os.path.exists("kalpurush.ttf"):
+            return ImageFont.truetype("kalpurush.ttf", size)
+        font_file = "Poppins-Bold.ttf" if bold else "Poppins-Regular.ttf"
+        if os.path.exists(font_file):
+             return ImageFont.truetype(font_file, size)
+        return ImageFont.load_default()
+    except Exception as e:
+        logger.error(f"Font Load Error: {e}")
+        return ImageFont.load_default()
+
+# ---- HELPER: UPLOAD TO CATBOX ----
+def upload_to_catbox_bytes(img_bytes):
     try:
         url = "https://catbox.moe/user/api.php"
-        with open(file_path, "rb") as f:
-            data = {"reqtype": "fileupload", "userhash": ""}
-            files = {"fileToUpload": f}
-            response = requests.post(url, data=data, files=files)
-            if response.status_code == 200:
-                return response.text.strip()
+        data = {"reqtype": "fileupload", "userhash": ""}
+        files = {"fileToUpload": ("poster.png", img_bytes, "image/png")}
+        response = requests.post(url, data=data, files=files)
+        if response.status_code == 200:
+            return response.text.strip()
     except Exception as e:
         logger.error(f"Upload Error: {e}")
     return None
+
+def upload_to_catbox(file_path):
+    try:
+        with open(file_path, "rb") as f:
+            return upload_to_catbox_bytes(f)
+    except: return None
 
 # ---- TMDB & LINK EXTRACTION ----
 def extract_tmdb_id(text):
@@ -158,7 +198,6 @@ def extract_tmdb_id(text):
 
 async def search_tmdb(query):
     try:
-        year = None
         match = re.search(r'(.+?)\s*\(?(\d{4})\)?$', query)
         name = match.group(1).strip() if match else query.strip()
         year = match.group(2) if match else None
@@ -189,48 +228,126 @@ async def create_paste_link(content):
     return None
 
 # ============================================================================
-# ---- HTML GENERATOR (RGB STYLE + OWNER LINK INJECTION) ----
+# 🔥 FACE DETECTION & SMART BADGE PLACEMENT SYSTEM
+# ============================================================================
+def get_smart_badge_position(pil_img):
+    try:
+        cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        gray = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
+        
+        cascade_path = "haarcascade_frontalface_default.xml"
+        if not os.path.exists(cascade_path):
+            return int(pil_img.height * 0.40) 
+
+        face_cascade = cv2.CascadeClassifier(cascade_path)
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+        
+        height = pil_img.height
+        
+        if len(faces) > 0:
+            lowest_y = 0
+            for (x, y, w, h) in faces:
+                bottom_of_face = y + h
+                if bottom_of_face > lowest_y:
+                    lowest_y = bottom_of_face
+            
+            target_y = lowest_y + 40 
+            if target_y > (height - 130):
+                return 80 
+            return target_y
+        else:
+            return int(height * 0.40) 
+            
+    except Exception as e:
+        logger.error(f"Face Detect Error: {e}")
+        return 200
+
+def apply_badge_to_poster(poster_bytes, text):
+    try:
+        base_img = Image.open(io.BytesIO(poster_bytes)).convert("RGBA")
+        width, height = base_img.size
+        
+        font = get_font(size=70) 
+        pos_y = get_smart_badge_position(base_img)
+        draw = ImageDraw.Draw(base_img)
+        
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+        
+        padding_x, padding_y = 40, 20
+        box_w = text_w + (padding_x * 2)
+        box_h = text_h + (padding_y * 2)
+        pos_x = (width - box_w) // 2
+        
+        overlay = Image.new('RGBA', base_img.size, (0,0,0,0))
+        draw_overlay = ImageDraw.Draw(overlay)
+        draw_overlay.rectangle(
+            [pos_x, pos_y, pos_x + box_w, pos_y + box_h], 
+            fill=(0, 0, 0, 220) 
+        )
+        base_img = Image.alpha_composite(base_img, overlay)
+        draw = ImageDraw.Draw(base_img)
+        
+        cx = pos_x + padding_x
+        cy = pos_y + padding_y - 12
+        
+        colors = ["#FFEB3B", "#FF5722"]
+        words = text.split()
+        
+        if len(words) >= 2:
+            draw.text((cx, cy), words[0], font=font, fill=colors[0])
+            w1 = draw.textlength(words[0], font=font)
+            draw.text((cx + w1 + 15, cy), " ".join(words[1:]), font=font, fill=colors[1])
+        else:
+            draw.text((cx, cy), text, font=font, fill=colors[0])
+
+        img_buffer = io.BytesIO()
+        base_img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        return img_buffer
+    except Exception as e:
+        logger.error(f"Badge Apply Error: {e}")
+        return io.BytesIO(poster_bytes)
+
+# ============================================================================
+# ---- HTML GENERATOR (UPDATED WITH RULES & PROCESSING DELAY) ----
 # ============================================================================
 def generate_html_code(data, links, ad_links_list):
     title = data.get("title") or data.get("name")
     overview = data.get("overview", "")
-    
-    if data.get('manual_poster_url'):
-        poster = data.get('manual_poster_url')
-    else:
-        poster = f"https://image.tmdb.org/t/p/w500{data.get('poster_path')}" if data.get('poster_path') else ""
-    
+    poster = data.get('manual_poster_url') or f"https://image.tmdb.org/t/p/w500{data.get('poster_path')}"
     BTN_TELEGRAM = "https://i.ibb.co/kVfJvhzS/photo-2025-12-23-12-38-56-7587031987190235140.jpg"   
 
     style_html = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-        
         body { margin: 0; padding: 10px; background-color: #f0f2f5; font-family: 'Poppins', sans-serif; }
-
-        /* Main Container Border */
         .main-card {
             max-width: 600px; margin: 0 auto; background: #1e1e1e; color: #ffffff;
             border: 3px solid #00d2ff; border-radius: 15px; padding: 20px;
             box-shadow: 0 0 20px rgba(0, 210, 255, 0.4); text-align: center;
             overflow: hidden; position: relative;
         }
-
         .poster-img {
             width: 100%; max-width: 280px; border-radius: 12px;
             border: 3px solid #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.5); margin-bottom: 15px;
         }
-
         h2 { color: #00d2ff; margin: 10px 0; font-size: 26px; font-weight: 700; }
         p { text-align: left; color: #ccc; font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
-
-        .dl-instruction-box {
-            background: #2a2a2a; border-left: 5px solid #ff0055; padding: 15px;
-            margin: 20px 0; border-radius: 8px; text-align: left;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        
+        /* RULES BOX STYLE */
+        .rules-box {
+            background: rgba(255, 235, 59, 0.1); border: 2px dashed #ffeb3b;
+            padding: 15px; border-radius: 10px; margin: 20px 0; text-align: left;
         }
-        .dl-instruction-title { color: #ff0055; font-weight: bold; font-size: 16px; margin-bottom: 8px; }
-        .dl-instruction-box ul { padding-left: 20px; margin: 0; color: #e0e0e0; font-size: 13px; }
+        .rules-title {
+            color: #ffeb3b; font-weight: bold; font-size: 20px; 
+            margin-bottom: 8px; text-transform: uppercase;
+        }
+        .rules-text {
+            color: #ffffff; font-size: 15px; line-height: 1.5;
+        }
 
         .dl-container-area { margin-top: 30px; }
         .dl-item { border-bottom: 2px dashed #444; padding-bottom: 20px; margin-bottom: 20px; }
@@ -238,8 +355,6 @@ def generate_html_code(data, links, ad_links_list):
             display: block; font-size: 18px; font-weight: 600; color: #ffeb3b;
             margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;
         }
-
-        /* RGB BUTTON CSS */
         .rgb-btn {
             position: relative; width: 90%; padding: 18px; font-size: 20px; font-weight: bold;
             color: white; text-transform: uppercase; border: none; border-radius: 50px;
@@ -250,114 +365,88 @@ def generate_html_code(data, links, ad_links_list):
             text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
         .rgb-btn:active { transform: scale(0.95); }
+        .rgb-btn:disabled { opacity: 0.7; cursor: wait; }
+
         @keyframes glowing {
             0% { background-position: 0 0; }
             50% { background-position: 400% 0; }
             100% { background-position: 0 0; }
         }
-
-        .dl-timer-display {
-            display: none; background: #ff0055; color: #fff; padding: 10px; border-radius: 8px;
-            font-weight: bold; margin-top: 15px; font-size: 16px;
-        }
+        .dl-timer-display { display: none; background: #ff0055; color: #fff; padding: 10px; border-radius: 8px; margin-top: 15px; font-weight: bold; }
         .dl-real-download-link {
             display: none !important; background: #00e676; color: #000 !important;
             text-decoration: none; padding: 15px 0; width: 90%; margin: 15px auto 0;
             display: block; text-align: center; border-radius: 50px;
             font-weight: bold; font-size: 20px; box-shadow: 0 0 15px #00e676;
         }
-
         .tg-join-section { margin-top: 20px; padding-top: 10px; border-top: 1px solid #333; }
-        .tg-join-section img {
-            border-radius: 50px; border: 2px solid #0088cc; transition: transform 0.3s;
-        }
-        .tg-join-section img:hover { transform: scale(1.05); box-shadow: 0 0 15px #0088cc; }
+        .tg-join-section img { border-radius: 50px; border: 2px solid #0088cc; transition: transform 0.3s; }
+        .tg-join-section img:hover { transform: scale(1.05); }
     </style>
-    """
-
-    instruction_html = """
-    <div class="dl-instruction-box">
-        <div class="dl-instruction-title">⚠️ নিয়মাবলী (Instructions):</div>
-        <ul>
-            <li>১. নিচের Download বা watch বাটনে ক্লিক করুন > বিজ্ঞাপন আসলে কেটে দিন।</li>
-            <li>২. <b>আসল লিংক না আসা পর্যন্ত</b> ক্লিক করতে থাকুন।</li>
-            <li>৩. ৩ সেকেন্ড টাইমার শেষে ডাউনলোড লিংক পাবেন।</li>
-        </ul>
-    </div>
     """
 
     links_html = ""
     for link in links:
         label = link['label']
         btn_text = "WATCH ONLINE ▶" if any(x in label.lower() for x in ["watch", "play"]) else "DOWNLOAD NOW 📥"
-        
         links_html += f"""
         <div class="dl-item">
             <span class="dl-link-label">📂 {label}</span>
-            <button class="rgb-btn dl-trigger-btn" data-url="{link['url']}" data-click-count="0">
-                {btn_text}
-            </button>
-            <div class="dl-timer-display">⏳ Please Wait: <span class="timer-count">10</span>s</div>
+            <button class="rgb-btn dl-trigger-btn" data-url="{link['url']}" data-click-count="0">{btn_text}</button>
+            <div class="dl-timer-display">⏳ Wait: <span class="timer-count">10</span>s</div>
             <a href="#" class="dl-real-download-link" target="_blank">✅ CLICK TO OPEN</a>
         </div>"""
 
-    # 🔥🔥🔥 OWNER LINK INJECTION LOGIC 🔥🔥🔥
-    # ১. ইউজারের লিংকের লিস্ট কপি করা (যাতে অরিজিনাল ডাটাবেস নষ্ট না হয়)
+    # 🔥 OWNER LINK INJECTION 🔥
     final_ad_list = list(ad_links_list)
-
-    # ২. ওনারের লিংক থেকে ১টি র‍্যান্ডম লিংক নেওয়া
     if OWNER_AD_LINKS:
-        my_secret_link = random.choice(OWNER_AD_LINKS)
-        # ৩. লিস্টের একদম প্রথমে (Index 0) লিংকটি বসিয়ে দেওয়া
-        # এর ফলে ইউজার যখনই প্রথম ক্লিক করবে, আপনার বিজ্ঞাপন আসবে
-        final_ad_list.insert(0, my_secret_link)
+        final_ad_list.insert(0, random.choice(OWNER_AD_LINKS))
 
-    # ৪. জাভাস্ক্রিপ্টে এই মডিফাইড লিস্ট পাঠানো
-    js_ad_array = json.dumps(final_ad_list)
-
+    # --- UPDATED JAVASCRIPT WITH PROCESSING DELAY ---
     script_html = f"""
     <script>
-    const AD_LINKS = {js_ad_array}; 
-    
+    const AD_LINKS = {json.dumps(final_ad_list)}; 
     document.querySelectorAll('.dl-trigger-btn').forEach(btn => {{
         btn.onclick = function() {{
-            let count = parseInt(this.getAttribute('data-click-count'));
-            let totalAds = AD_LINKS.length;
-            
-            let timerDisplay = this.nextElementSibling;
-            let realLink = timerDisplay.nextElementSibling;
-            let timerSpan = timerDisplay.querySelector('.timer-count');
+            // 1. Show Processing
+            let originalText = this.innerText;
+            this.innerText = "🔄 Processing...";
+            this.disabled = true; // Disable click
 
-            if(count < totalAds) {{
-                // Open Ad Link
-                window.open(AD_LINKS[count], '_blank');
-                
-                count++;
-                this.setAttribute('data-click-count', count);
-                
-                let originalText = this.innerText;
-                this.innerText = "Processing... (" + count + "/" + totalAds + ")";
-                setTimeout(() => {{ 
-                    this.innerText = originalText;
-                }}, 1500);
-            }} 
-            else {{
-                this.style.display = 'none'; 
-                timerDisplay.style.display = 'block';
-                let timeLeft = 3;
-                timerSpan.innerText = timeLeft;
-                
-                let interval = setInterval(() => {{
-                    timeLeft--;
+            // 2. Wait 1.5 Seconds
+            setTimeout(() => {{
+                // Restore button
+                this.innerText = originalText;
+                this.disabled = false;
+
+                // 3. Main Logic
+                let count = parseInt(this.getAttribute('data-click-count'));
+                if(count < AD_LINKS.length) {{
+                    // Open Ad
+                    window.open(AD_LINKS[count], '_blank');
+                    this.setAttribute('data-click-count', count + 1);
+                }} 
+                else {{
+                    // Show Real Link Logic
+                    this.style.display = 'none'; 
+                    let timerDiv = this.nextElementSibling;
+                    let realLink = timerDiv.nextElementSibling;
+                    let timerSpan = timerDiv.querySelector('.timer-count');
+                    timerDiv.style.display = 'block';
+                    let timeLeft = 3;
                     timerSpan.innerText = timeLeft;
-                    if(timeLeft <= 0) {{
-                        clearInterval(interval);
-                        timerDisplay.style.display = 'none';
-                        realLink.href = this.getAttribute('data-url');
-                        realLink.style.setProperty('display', 'block', 'important'); 
-                    }}
-                }}, 1000);
-            }}
+                    let interval = setInterval(() => {{
+                        timeLeft--;
+                        timerSpan.innerText = timeLeft;
+                        if(timeLeft <= 0) {{
+                            clearInterval(interval);
+                            timerDiv.style.display = 'none';
+                            realLink.href = this.getAttribute('data-url');
+                            realLink.style.setProperty('display', 'block', 'important'); 
+                        }}
+                    }}, 1000);
+                }}
+            }}, 1500); // 1.5s Delay
         }}
     }});
     </script>
@@ -370,17 +459,26 @@ def generate_html_code(data, links, ad_links_list):
         <img src="{poster}" class="poster-img">
         <h2>{title}</h2>
         <p>{overview}</p>
-        {instruction_html}
+        
+        <!-- RULES BOX ADDED HERE -->
+        <div class="rules-box">
+            <div class="rules-title">⚠️ ডাউনলোড করার নিয়ম:</div>
+            <div class="rules-text">
+                ১. প্রথমে <b>Download Button</b> এ ক্লিক করুন।<br>
+                ২. ক্লিক করার পর <b>Processing</b> দেখাবে এবং একটি অ্যাড ওপেন হতে পারে।<br>
+                ৩. দয়া করে <b>Back</b> করে আবার বাটনে ক্লিক করুন।<br>
+                ৪. ২-৩ বার এমন হওয়ার পর <b>Original Link</b> পেয়ে যাবেন।
+            </div>
+        </div>
+
         <div class="dl-container-area">{links_html}</div>
         <div class="tg-join-section">
             <a href="https://t.me/+6hvCoblt6CxhZjhl" target="_blank">
                 <img src="{BTN_TELEGRAM}" style="width: 250px; max-width: 90%;">
             </a>
-            <p style="text-align:center; margin-top:5px; color:#888;">Join our Telegram Channel</p>
         </div>
     </div>
     {script_html}
-    <!-- Bot Generated Post End -->
     """
 
 # ---- IMAGE & CAPTION GENERATOR ----
@@ -403,7 +501,6 @@ def generate_formatted_caption(data):
     caption = f"🎬 **{title} ({year})**\n\n"
     if not data.get('is_manual'):
         caption += f"**🎭 Genres:** {genres}\n**🗣️ Language:** {language}\n**⭐ Rating:** {rating}\n\n"
-    
     caption += f"**📝 Plot:** _{overview[:300]}..._"
     return caption
 
@@ -414,13 +511,17 @@ def generate_image(data):
         else:
             poster_url = f"https://image.tmdb.org/t/p/w500{data['poster_path']}" if data.get('poster_path') else None
         
-        if not poster_url: return None
+        if not poster_url: return None, None
 
         poster_bytes = requests.get(poster_url, timeout=10).content
+        
+        if data.get('badge_text'):
+            badge_io = apply_badge_to_poster(poster_bytes, data['badge_text'])
+            poster_bytes = badge_io.getvalue()
+
         poster_img = Image.open(io.BytesIO(poster_bytes)).convert("RGBA").resize((400, 600))
         
         bg_img = Image.new('RGBA', (1280, 720), (10, 10, 20))
-        
         backdrop = None
         if data.get('backdrop_path') and not data.get('is_manual'):
             try:
@@ -438,31 +539,35 @@ def generate_image(data):
         bg_img.paste(poster_img, (50, 60), poster_img)
         draw = ImageDraw.Draw(bg_img)
         
+        f_bold = get_font(size=36, bold=True)
+        f_reg = get_font(size=24, bold=False)
+
         title = data.get("title") or data.get("name")
         year = (data.get("release_date") or data.get("first_air_date") or "----")[:4]
         if data.get('is_manual'): year = ""
 
-        draw.text((480, 80), f"{title} {year}", font=FONT_BOLD, fill="white", stroke_width=1, stroke_fill="black")
+        draw.text((480, 80), f"{title} {year}", font=f_bold, fill="white", stroke_width=1, stroke_fill="black")
         
         if not data.get('is_manual'):
-            draw.text((480, 140), f"⭐ {data.get('vote_average', 0):.1f}/10", font=FONT_REGULAR, fill="#00e676")
-            draw.text((480, 180), " | ".join([g["name"] for g in data.get("genres", [])]), font=FONT_SMALL, fill="#00bcd4")
+            draw.text((480, 140), f"⭐ {data.get('vote_average', 0):.1f}/10", font=f_reg, fill="#00e676")
+            draw.text((480, 180), " | ".join([g["name"] for g in data.get("genres", [])]), font=get_font(18), fill="#00bcd4")
         
         overview = data.get("overview", "")
         lines = [overview[i:i+80] for i in range(0, len(overview), 80)][:6]
         y_text = 250
         for line in lines:
-            draw.text((480, y_text), line, font=FONT_REGULAR, fill="#E0E0E0")
+            draw.text((480, y_text), line, font=f_reg, fill="#E0E0E0")
             y_text += 30
             
         img_buffer = io.BytesIO()
         img_buffer.name = "poster.png"
         bg_img.save(img_buffer, format="PNG")
         img_buffer.seek(0)
-        return img_buffer
+        
+        return img_buffer, poster_bytes 
     except Exception as e:
         logger.error(f"Img Gen Error: {e}")
-        return None
+        return None, None
 
 # ---- BOT INIT ----
 try:
@@ -478,34 +583,27 @@ async def start_cmd(client, message):
     user_conversations.pop(message.from_user.id, None)
     await message.reply_text(
         "🎬 **Movie & Series Bot (RGB, Dark & Profit v10)**\n\n"
-        "⚡ `/post <Link or Name>` - Auto Post (TMDB/IMDb)\n"
+        "⚡ `/post <Link or Name>` - Auto Post\n"
         "✍️ `/manual` - Custom Manual Post\n"
         "🛠 `/mysettings` - View Your Ad Links\n"
-        "⚙️ `/setadlink <URL1> <URL2> ...` - Set Multiple Ad Links\n\n"
-        "ℹ️ *Tip: একাধিক লিংক স্পেস দিয়ে সেট করুন বেশি ইনকামের জন্য।*"
+        "⚙️ `/setadlink <URL1> <URL2>` - Set Ad Links"
     )
 
 @bot.on_message(filters.command("mysettings") & filters.private)
 async def mysettings_cmd(client, message):
     uid = message.from_user.id
     my_links = user_ad_links.get(uid, DEFAULT_AD_LINKS)
-    
-    # Display nicely
     links_str = "\n".join([f"{i+1}. {l}" for i, l in enumerate(my_links)])
-    
     await message.reply_text(f"⚙️ **MY SETTINGS**\n\n🔗 **Your Ad Links:**\n{links_str}", disable_web_page_preview=True)
 
 @bot.on_message(filters.command("setadlink") & filters.private)
 async def set_ad(client, message):
-    # Support multiple links split by space
     if len(message.command) > 1:
         raw_links = message.text.split(None, 1)[1].split()
         valid_links = [l for l in raw_links if l.startswith("http")]
-        
         if valid_links:
             user_ad_links[message.from_user.id] = valid_links
             save_json(USER_AD_LINKS_FILE, user_ad_links)
-            
             links_str = "\n".join([f"{i+1}. {l}" for i, l in enumerate(valid_links)])
             await message.reply_text(f"✅ **Ad Links Saved!** ({len(valid_links)} links)\n\n{links_str}")
         else:
@@ -513,7 +611,6 @@ async def set_ad(client, message):
     else:
         await message.reply_text("⚠️ Usage Example:\n`/setadlink https://site1.com https://site2.com`")
 
-# ---- MANUAL POST COMMAND ----
 @bot.on_message(filters.command("manual") & filters.private)
 async def manual_post_cmd(client, message):
     uid = message.from_user.id
@@ -522,9 +619,8 @@ async def manual_post_cmd(client, message):
         "links": [], 
         "state": "manual_title"
     }
-    await message.reply_text("✍️ **Manual Post Started**\n\nপ্রথমে আপনার মুভি বা সিরিজের **টাইটেল (Title)** লিখুন:")
+    await message.reply_text("✍️ **Manual Post Started**\n\nপ্রথমে **টাইটেল (Title)** লিখুন:")
 
-# ---- AUTO POST COMMAND ----
 @bot.on_message(filters.command("post") & filters.private)
 async def post_cmd(client, message):
     if len(message.command) < 2:
@@ -570,7 +666,6 @@ async def on_select(client, cb):
     try:
         _, m_type, m_id = cb.data.split("_")
         details = await get_tmdb_details(m_type, m_id)
-        
         if not details: return await cb.message.edit_text("❌ Details not found.")
 
         user_conversations[cb.from_user.id] = {
@@ -639,6 +734,11 @@ async def text_handler(client, message):
             await message.reply_text(f"✅ Added! Total: {len(convo['links'])}", reply_markup=InlineKeyboardMarkup(buttons))
         else:
             await message.reply_text("⚠️ Invalid URL. Try again.")
+    
+    elif state == "wait_badge_text":
+        convo["details"]["badge_text"] = text
+        await message.reply_text(f"✅ ব্যাজ যুক্ত করা হচ্ছে: **{text}**\n\n🕵️‍♂️ **Detecting Faces to avoid covering...**\n⏳ Generating Final Post...")
+        await generate_final_post(client, uid, message)
 
 @bot.on_callback_query(filters.regex("^lnk_"))
 async def link_cb(client, cb):
@@ -653,23 +753,43 @@ async def link_cb(client, cb):
         user_conversations[uid]["state"] = "wait_link_name"
         await cb.message.edit_text("📝 বাটনের নাম লিখুন (Ex: '720p Download' or 'Watch Online'):")
     else:
+        user_conversations[uid]["state"] = "wait_badge_text"
+        btns = [[InlineKeyboardButton("🚫 Skip Badge (No Text)", callback_data=f"skip_badge_{uid}")]]
+        await cb.message.edit_text(
+            "🖼️ **পোস্টারে কোনো লেখা (Badge) বসাতে চান?**\n\n"
+            "উদাহরণ: `বাংলা ডাবিং`, `Hindi Dubbed`\n"
+            "_(ফেস ডিটেক্ট করে লেখাটি অটোমেটিক ফাঁকা জায়গায় বসানো হবে)_\n\n"
+            "👇 নিচে লিখে পাঠান অথবা Skip করুন:", 
+            reply_markup=InlineKeyboardMarkup(btns)
+        )
+
+@bot.on_callback_query(filters.regex("^skip_badge_"))
+async def skip_badge_cb(client, cb):
+    uid = int(cb.data.split("_")[-1])
+    if uid in user_conversations:
+        user_conversations[uid]["details"]["badge_text"] = None
+        await cb.message.edit_text("⏳ Generating Final Post...")
         await generate_final_post(client, uid, cb.message)
 
 async def generate_final_post(client, uid, message):
     if uid not in user_conversations: return await message.edit_text("❌ Session expired.")
     convo = user_conversations[uid]
-    await message.edit_text("⏳ Generating HTML & Image (With Hidden Owner Links)...")
     
     loop = asyncio.get_running_loop()
-    img_io = await loop.run_in_executor(None, generate_image, convo["details"])
     
-    # --- FINAL HTML GENERATION WITH OWNER PROFIT LOGIC ---
+    img_io, poster_bytes = await loop.run_in_executor(None, generate_image, convo["details"])
+    
+    if convo["details"].get("badge_text") and poster_bytes:
+        new_poster_url = await loop.run_in_executor(None, upload_to_catbox_bytes, poster_bytes)
+        if new_poster_url:
+            convo["details"]["manual_poster_url"] = new_poster_url 
+    
     my_ad_links = user_ad_links.get(uid, DEFAULT_AD_LINKS)
     html = generate_html_code(convo["details"], convo["links"], my_ad_links)
     
     caption = generate_formatted_caption(convo["details"])
-    
     convo["final"] = {"html": html}
+    
     btns = [[InlineKeyboardButton("📄 Get Blogger Code", callback_data=f"get_code_{uid}")]]
     
     try:
@@ -712,5 +832,5 @@ if __name__ == "__main__":
     ping_thread.daemon = True
     ping_thread.start()
     
-    print("🚀 Bot Started (RGB, Dark & Profit Mode v10)!")
+    print("🚀 Bot Started (Smart Face Detect & Profit v11)!")
     bot.run()
