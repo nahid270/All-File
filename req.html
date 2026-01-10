@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<!-- CTG Movies | Streaming Page -->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTG Movies | {{file_name}}</title>
+
+    <!-- ফন্ট এবং আইকন লোড -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+
+<script
+  type="text/javascript"
+  src="//pl27533547.effectivegatecpm.com/4f/c4/ab/4fc4abe36b05fec4a9523cef7259965b.js"
+></script>
+
+    <style>
+        :root {
+            --primary-cyan: #06b6d4;
+            --primary-purple: #8b5cf6;
+            --primary-pink: #ec4899;
+            --dark-bg: #0f172a;
+            --dark-secondary: #1e293b;
+            --glass-bg: rgba(15, 23, 42, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(135deg, var(--dark-bg) 0%, #1a1a2e 50%, var(--dark-bg) 100%);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        
+        .gradient-overlay {
+            position: fixed; inset: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(6, 182, 212, 0.15), transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(139, 92, 246, 0.15), transparent 50%);
+            z-index: 2; pointer-events: none;
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            padding: 1rem 2rem;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, transparent 100%);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            text-align: center;
+        }
+
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 2rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .main-container {
+            position: relative; z-index: 10;
+            padding-top: 6rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-left: 2rem; padding-right: 2rem;
+            padding-bottom: 4rem;
+        }
+
+        .video-container {
+            position: relative; margin-bottom: 2rem;
+            border-radius: 1.5rem; overflow: hidden;
+            background: var(--dark-secondary);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .video-container video {
+            width: 100%; height: auto; aspect-ratio: 16/9;
+            object-fit: cover; display: block;
+        }
+
+        .info-panel {
+            border-radius: 1.5rem; padding: 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 2rem; flex-wrap: wrap;
+        }
+
+        .file-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .action-buttons {
+            display: flex; gap: 1rem; flex-wrap: wrap;
+        }
+
+        .action-btn {
+            position: relative;
+            padding: 0.875rem 1.5rem;
+            border: none; border-radius: 1rem;
+            font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; gap: 0.75rem;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
+            color: white; font-size: 1rem;
+        }
+
+        .action-btn img { width: 24px; height: 24px; }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(6, 182, 212, 0.4);
+        }
+
+        /* VLC Button Specific Color */
+        .action-btn.vlc-btn {
+            background: linear-gradient(135deg, #FF8C00, #FF4500);
+        }
+
+        /* MX Button Specific Color */
+        .action-btn.mx-btn {
+            background: linear-gradient(135deg, var(--primary-cyan), var(--primary-purple));
+        }
+
+        <script type="text/javascript">
+  atOptions = {
+  	'key' : '08d001ab7969abf2253178c1bffe57f7',
+  	'format' : 'iframe',
+  	'height' : 90,
+  	'width' : 728,
+  	'params' : {}
+  };
+</script>
+<script
+  type="text/javascript"
+  src="//www.highperformanceformat.com/08d001ab7969abf2253178c1bffe57f7/invoke.js"
+></script>
+        .ad-container {
+            width: 100%; margin: 1.5rem 0; padding: 0.5rem;
+            border-radius: 1rem;
+            background: rgba(30, 41, 59, 0.3);
+            border: 1px dashed var(--glass-border);
+            text-align: center;
+            min-height: 100px; /* Adjust height based on ad size */
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        
+        .ad-label {
+            font-size: 0.7rem; color: #64748b; margin-bottom: 5px; text-transform: uppercase;
+        }
+
+        .footer {
+            text-align: center; padding: 2rem;
+            border-top: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+        }
+
+        .cursor-dot {
+            position: fixed; width: 8px; height: 8px;
+            background: radial-gradient(circle, var(--primary-cyan), transparent);
+            border-radius: 50%; pointer-events: none; z-index: 9999;
+            transition: all 0.1s ease;
+        }
+
+        @media (max-width: 768px) {
+            .info-panel { flex-direction: column; text-align: center; }
+            .action-buttons { justify-content: center; width: 100%; }
+            .logo { font-size: 1.5rem; }
+            .plyr__controls { justify-content: center !important; flex-wrap: wrap !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="particle-canvas"></canvas>
+    <div class="gradient-overlay"></div>
+    <div class="cursor-dot"></div>
+
+    <header class="header">
+        <a href="#" class="logo">CTG Movies</a>
+    </header>
+
+    <div class="main-container">
+        <main>
+            <script type="text/javascript">
+  atOptions = {
+  	'key' : '08d001ab7969abf2253178c1bffe57f7',
+  	'format' : 'iframe',
+  	'height' : 90,
+  	'width' : 728,
+  	'params' : {}
+  };
+</script>
+<script
+  type="text/javascript"
+  src="//www.highperformanceformat.com/08d001ab7969abf2253178c1bffe57f7/invoke.js"
+></script>
+            <div class="ad-container glass">
+                <span class="ad-label">Advertisement</span>
+                <!-- ব্যানার অ্যাড কোড এখানে দিতে পারেন (যদি থাকে) -->
+            </div>
+
+            <section id="video-section" class="video-section">
+                <div class="video-container glass">
+                    <video id="player" playsinline controls data-poster="https://envs.sh/34_.jpg?x=bcb2b992">
+                        <source src="{{file_url}}" type="video/mp4" />
+                    </video>
+                </div>
+
+                <script type="text/javascript">
+  atOptions = {
+  	'key' : '08d001ab7969abf2253178c1bffe57f7',
+  	'format' : 'iframe',
+  	'height' : 90,
+  	'width' : 728,
+  	'params' : {}
+  };
+</script>
+<script
+  type="text/javascript"
+  src="//www.highperformanceformat.com/08d001ab7969abf2253178c1bffe57f7/invoke.js"
+></script>
+                <div class="ad-container glass">
+                    <span class="ad-label">Advertisement</span>
+                     <!-- ব্যানার অ্যাড কোড এখানে দিতে পারেন (যদি থাকে) -->
+                </div>
+
+                <div class="info-panel glass">
+                    <div class="file-info">
+                        <h4 style="color: #94a3b8; font-size: 0.8rem; margin-bottom: 0.5rem;">Now Streaming</h4>
+                        <h2 class="file-name">{{file_name}}</h2>
+                    </div>
+
+                    <div class="panel-actions">
+                        <div class="action-buttons">
+                            <!-- VLC Player Button -->
+                            <button class="action-btn vlc-btn" onclick="vlc_player()">
+                                <img src="https://i.postimg.cc/15TQ4y7B/vlc.png" alt="VLC">
+                                <span>VLC Player</span>
+                            </button>
+                            
+                            <!-- MX Player Button -->
+                            <button class="action-btn mx-btn" onclick="mx_player()">
+                                <img src="https://i.postimg.cc/sx4Msv4T/mx.png" alt="MX Player">
+                                <span>MX Player</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="footer">
+        <p style="color: #cbd5e1;">&copy; 2025 CTG Movies. All Rights Reserved.</p>
+    </footer>
+
+    <!-- স্ক্রিপ্ট লাইব্রেরি -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+
+    <script>
+        // ভিডিও প্লেয়ার ইনিশিয়ালাইজেশন
+        document.addEventListener('DOMContentLoaded', () => {
+            const player = new Plyr('#player', {
+                controls: ['play-large', 'rewind', 'play', 'fast-forward', 'progress', 'current-time', 'mute', 'volume', 'fullscreen']
+            });
+            initializeParticles();
+            initializeCursor();
+        });
+
+        // অ্যানিমেশন এবং পার্টিকেল সিস্টেম
+        function initializeParticles() {
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            
+            function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize);
+            resize();
+
+            for(let i=0; i<50; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5,
+                    size: Math.random() * 2, color: '#06b6d4'
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                particles.forEach(p => {
+                    p.x += p.vx; p.y += p.vy;
+                    if(p.x<0||p.x>canvas.width) p.vx*=-1;
+                    if(p.y<0||p.y>canvas.height) p.vy*=-1;
+                    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    ctx.fillStyle = p.color; ctx.fill();
+                });
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        function initializeCursor() {
+            const cursor = document.querySelector('.cursor-dot');
+            document.addEventListener('mousemove', e => {
+                gsap.to(cursor, {x: e.clientX-4, y: e.clientY-4, duration: 0.1});
+            });
+        }
+
+        // এনিমেশন লোড
+        window.addEventListener('load', () => {
+            gsap.from('.main-container', {opacity: 0, y: 30, duration: 1});
+        });
+
+        // ==========================================
+        // PLAYER LINK LOGIC
+        // ==========================================
+        
+        // ভিডিও URL সংগ্রহ
+        const getVideoUrl = () => document.querySelector('#player source').src;
+
+        // VLC Player Function
+        function vlc_player() { 
+            const url = getVideoUrl();
+            const cleanUrl = url.replace(/^https?:\/\//, ""); 
+            window.location.href = `vlc://${cleanUrl}`; 
+        }
+
+        // MX Player Function
+        function mx_player() { 
+            const url = getVideoUrl();
+            window.location.href = `intent:${url}#Intent;action=android.intent.action.VIEW;type=video/*;package=com.mxtech.videoplayer.ad;end`; 
+        }
+
+        // রাইট ক্লিক বন্ধ (সিকিউরিটি)
+        document.addEventListener("contextmenu", e => e.preventDefault());
+    </script>
+
+    <script
+  type="text/javascript"
+  src="//pl27563091.effectivegatecpm.com/28/6d/12/286d12557a506f1a7776563a11992e69.js"
+></script>
+</body>
+</html>
