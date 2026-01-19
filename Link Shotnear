@@ -30,7 +30,7 @@ channels_col = db['channels']
 otp_col = db['otps']
 direct_links_col = db['direct_links']
 
-# --- [PERFORMANCE] ডাটাবেস ইনডেক্সিং ---
+# --- ডাটাবেস ইনডেক্সিং ---
 try:
     urls_col.create_index("short_code", unique=True)
     urls_col.create_index("created_at")
@@ -69,7 +69,7 @@ def get_settings():
 def is_logged_in():
     return session.get('logged_in')
 
-# --- [HELPER] Geo, Device & Referrer ---
+# --- Helper Functions ---
 def get_user_country(ip):
     try:
         if ip == '127.0.0.1': return "US"
@@ -88,27 +88,21 @@ def get_user_device():
     return 'Desktop'
 
 def get_traffic_source(referrer_url):
-    """Analyze where the traffic is coming from"""
-    if not referrer_url:
-        return "Direct / App"
+    if not referrer_url: return "Direct / App"
     try:
         domain = urlparse(referrer_url).netloc.lower()
         if 't.me' in domain or 'telegram' in domain: return 'Telegram'
         if 'facebook' in domain or 'fb.com' in domain: return 'Facebook'
-        if 'twitter' in domain or 'x.com' in domain: return 'Twitter'
-        if 'youtube' in domain or 'youtu.be' in domain: return 'YouTube'
-        if 'whatsapp' in domain: return 'WhatsApp'
-        if 'google' in domain: return 'Google Search'
-        return domain # Other websites
-    except:
-        return "Unknown"
+        if 'youtube' in domain: return 'YouTube'
+        return domain 
+    except: return "Unknown"
 
 # --- চ্যানেল বক্স ---
 def get_channels_html(theme_color="sky"):
     channels = list(channels_col.find())
     if not channels: return ""
     c = COLOR_MAP.get(theme_color, COLOR_MAP['sky'])
-    html = f'''<div class="w-full max-w-5xl mx-auto mt-8 mb-8 p-6 rounded-[30px] border border-white/10 glass shadow-xl">
+    html = f'''<div class="w-full max-w-5xl mx-auto mt-8 mb-8 p-4 md:p-6 rounded-[30px] border border-white/10 glass shadow-xl">
         <h3 class="text-center {c['text']} font-black mb-6 uppercase tracking-[0.2em] text-sm">Sponsored Channels</h3>
         <div class="flex flex-col items-center gap-6">'''
     for ch in channels:
@@ -135,14 +129,7 @@ def api_system():
         return jsonify({"status": "error", "message": "Missing URL"}) if res_format != 'text' else "Error: Missing URL"
 
     short_code = alias if alias else ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-    urls_col.insert_one({
-        "long_url": long_url, 
-        "short_code": short_code, 
-        "clicks": 0, 
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), 
-        "type": "api",
-        "referrers": {} # New field for analytics
-    })
+    urls_col.insert_one({"long_url": long_url, "short_code": short_code, "clicks": 0, "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "type": "api", "referrers": {}})
     shortened_url = request.host_url + short_code
     return shortened_url if res_format == 'text' else jsonify({"status": "success", "shortenedUrl": shortened_url})
 
@@ -151,7 +138,7 @@ def api_system():
 def index():
     settings = get_settings()
     c = COLOR_MAP.get(settings.get('main_theme', 'sky'), COLOR_MAP['sky'])
-    return render_template_string(f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><script src="https://cdn.tailwindcss.com"></script><title>{settings['site_name']}</title><style>body {{ background: #0f172a; color: white; }} .glass {{ background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }}</style></head><body class="min-h-screen flex flex-col items-center justify-center p-6 text-center"><h1 class="text-6xl md:text-8xl font-black mb-4 {c['text']} italic tracking-tighter uppercase">{settings['site_name']}</h1><p class="text-gray-400 mb-12 text-xl font-bold uppercase tracking-widest">Enterprise Link Management</p><div class="glass p-5 rounded-[40px] w-full max-w-3xl shadow-3xl mb-8"><form action="/shorten" method="POST" class="flex flex-col md:flex-row gap-4"><input type="url" name="long_url" placeholder="PASTE LINK HERE..." required class="flex-1 bg-transparent p-5 outline-none text-white text-xl font-bold placeholder:text-slate-600"><button type="submit" class="{c['bg']} text-white px-10 py-5 rounded-[30px] font-black text-xl hover:scale-105 transition uppercase shadow-xl">Shorten</button></form></div>{get_channels_html(settings.get('main_theme', 'sky'))}</body></html>''')
+    return render_template_string(f'''<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><script src="https://cdn.tailwindcss.com"></script><title>{settings['site_name']}</title><style>body {{ background: #0f172a; color: white; }} .glass {{ background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }}</style></head><body class="min-h-screen flex flex-col items-center justify-center p-6 text-center"><h1 class="text-5xl md:text-8xl font-black mb-4 {c['text']} italic tracking-tighter uppercase">{settings['site_name']}</h1><p class="text-gray-400 mb-12 text-lg md:text-xl font-bold uppercase tracking-widest">Enterprise Link Management</p><div class="glass p-5 rounded-[40px] w-full max-w-3xl shadow-3xl mb-8"><form action="/shorten" method="POST" class="flex flex-col md:flex-row gap-4"><input type="url" name="long_url" placeholder="PASTE LINK HERE..." required class="flex-1 bg-transparent p-5 outline-none text-white text-xl font-bold placeholder:text-slate-600"><button type="submit" class="{c['bg']} text-white px-10 py-5 rounded-[30px] font-black text-xl hover:scale-105 transition uppercase shadow-xl w-full md:w-auto">Shorten</button></form></div>{get_channels_html(settings.get('main_theme', 'sky'))}</body></html>''')
 
 @app.route('/shorten', methods=['POST'])
 def web_shorten():
@@ -159,17 +146,10 @@ def web_shorten():
     c = COLOR_MAP.get(settings.get('main_theme', 'sky'), COLOR_MAP['sky'])
     long_url = request.form.get('long_url')
     sc = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-    urls_col.insert_one({
-        "long_url": long_url, 
-        "short_code": sc, 
-        "clicks": 0, 
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), 
-        "type": "web",
-        "referrers": {}
-    })
-    return render_template_string(f'''<html><head><script src="https://cdn.tailwindcss.com"></script></head><body class="bg-slate-900 flex flex-col items-center justify-center min-h-screen p-4 text-white"><div class="bg-slate-800 p-12 rounded-[50px] shadow-2xl text-center max-w-xl w-full border border-slate-700"><h2 class="text-4xl font-black mb-8 {c['text']} uppercase italic">Success!</h2><input id="shortUrl" value="{request.host_url + sc}" readonly class="w-full bg-slate-900 p-6 rounded-2xl border border-slate-700 {c['text']} font-bold text-center mb-8 text-xl"><button onclick="copyLink()" id="copyBtn" class="w-full {c['bg']} text-white py-6 rounded-[30px] font-black text-2xl uppercase tracking-tighter transition shadow-xl">COPY LINK</button><a href="/" class="block mt-8 text-slate-500 font-bold uppercase text-xs hover:text-white transition">Create New</a></div><script>function copyLink() {{ var copyText = document.getElementById("shortUrl"); copyText.select(); navigator.clipboard.writeText(copyText.value); document.getElementById("copyBtn").innerText = "COPIED!"; }}</script></body></html>''')
+    urls_col.insert_one({"long_url": long_url, "short_code": sc, "clicks": 0, "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "type": "web", "referrers": {}})
+    return render_template_string(f'''<html><head><script src="https://cdn.tailwindcss.com"></script><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body class="bg-slate-900 flex flex-col items-center justify-center min-h-screen p-4 text-white"><div class="bg-slate-800 p-8 md:p-12 rounded-[50px] shadow-2xl text-center max-w-xl w-full border border-slate-700"><h2 class="text-3xl md:text-4xl font-black mb-8 {c['text']} uppercase italic">Success!</h2><input id="shortUrl" value="{request.host_url + sc}" readonly class="w-full bg-slate-900 p-6 rounded-2xl border border-slate-700 {c['text']} font-bold text-center mb-8 text-lg"><button onclick="copyLink()" id="copyBtn" class="w-full {c['bg']} text-white py-6 rounded-[30px] font-black text-2xl uppercase tracking-tighter transition shadow-xl">COPY LINK</button><a href="/" class="block mt-8 text-slate-500 font-bold uppercase text-xs hover:text-white transition">Create New</a></div><script>function copyLink() {{ var copyText = document.getElementById("shortUrl"); copyText.select(); navigator.clipboard.writeText(copyText.value); document.getElementById("copyBtn").innerText = "COPIED!"; }}</script></body></html>''')
 
-# --- এডমিন প্যানেল ---
+# --- এডমিন প্যানেল (MOBILE OPTIMIZED) ---
 @app.route('/admin')
 def admin_panel():
     if not is_logged_in(): return redirect(url_for('login'))
@@ -179,158 +159,183 @@ def admin_panel():
     channels = list(channels_col.find())
     direct_links = list(direct_links_col.find())
     
-    # --- [ANALYTICS] Chart Data Preparation ---
+    # Analytics Data
     today = datetime.now()
     dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(6, -1, -1)]
     date_counts = Counter([u['created_at'].split(' ')[0] for u in all_urls])
     chart_data = [date_counts.get(d, 0) for d in dates]
 
-    # --- [ANALYTICS] Referrer Traffic Data ---
     global_referrers = Counter()
     for u in all_urls:
         if 'referrers' in u and isinstance(u['referrers'], dict):
             global_referrers.update(u['referrers'])
-    
-    # Top 5 Sources
     top_sources = dict(global_referrers.most_common(5))
-    source_labels = list(top_sources.keys())
-    source_data = list(top_sources.values())
-    if not source_data: # Empty State
-        source_labels = ["No Data"]
-        source_data = [1]
-
+    source_labels = list(top_sources.keys()) if top_sources else ["No Data"]
+    source_data = list(top_sources.values()) if top_sources else [1]
     theme_options = sorted(COLOR_MAP.keys())
 
     return render_template_string(f'''
-    <html><head><script src="https://cdn.tailwindcss.com"></script>
+    <html><head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap" rel="stylesheet">
-    <style> body {{ font-family: 'Plus Jakarta Sans', sans-serif; background: #f1f5f9; }} .active-tab {{ background: #0f172a !important; color: white !important; }} .tab-content {{ display: none; }} .tab-content.active {{ display: block; }} </style>
+    <style> 
+        body {{ font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; padding-bottom: 80px; }} 
+        .active-tab {{ background: #0f172a !important; color: white !important; }} 
+        .tab-content {{ display: none; animation: fadeIn 0.3s; }} 
+        .tab-content.active {{ display: block; }} 
+        @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
+        /* Hide scrollbar for clean mobile look */
+        ::-webkit-scrollbar {{ width: 0px; background: transparent; }}
+    </style>
     </head>
-    <body class="flex flex-col lg:flex-row min-h-screen">
-        <div class="lg:w-72 bg-white border-r p-6 flex flex-col shadow-sm">
-            <h2 class="text-2xl font-black text-slate-900 mb-10 italic tracking-tighter">ADMIN <span class="text-blue-600">PRO</span></h2>
-            <nav class="space-y-2 flex-1">
-                <button onclick="showTab('overview')" id="tab-overview-btn" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition active-tab">📊 Analytics</button>
-                <button onclick="showTab('config')" id="tab-config-btn" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition">⚙️ Settings & UI</button>
-                <button onclick="showTab('bulk')" id="tab-bulk-btn" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition">🚀 Bulk Tools</button>
-                <button onclick="showTab('links')" id="tab-links-btn" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition">🔗 Direct Links</button>
-            </nav>
-            <a href="/logout" class="mt-8 p-4 bg-red-50 text-red-600 rounded-xl text-center font-bold text-xs hover:bg-red-100 transition">Log Out</a>
+    <body class="flex flex-col min-h-screen">
+        
+        <!-- Mobile Header -->
+        <div class="lg:hidden bg-white p-5 sticky top-0 z-40 border-b shadow-sm flex justify-between items-center">
+            <span class="font-black text-xl italic tracking-tighter">ADMIN<span class="text-blue-600">PANEL</span></span>
+            <a href="/logout" class="bg-red-50 text-red-600 p-2 rounded-lg text-xs font-bold">LOGOUT</a>
         </div>
 
-        <div class="flex-1 p-6 lg:p-10 overflow-y-auto">
-            <!-- OVERVIEW -->
-            <div id="overview" class="tab-content active space-y-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white p-8 rounded-[30px] shadow-sm border border-slate-100">
-                        <p class="text-slate-400 text-xs font-bold uppercase">Total Links</p>
-                        <h3 class="text-4xl font-black text-slate-900">{len(all_urls)}</h3>
+        <!-- Desktop Sidebar (Hidden on Mobile) -->
+        <div class="hidden lg:flex flex-col w-72 bg-white border-r h-screen fixed left-0 top-0 p-6 z-50">
+            <h2 class="text-2xl font-black mb-10 italic">ADMIN <span class="text-blue-600">PRO</span></h2>
+            <nav class="space-y-2 flex-1">
+                <button onclick="showTab('overview')" id="desk-overview" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50 active-tab">📊 Analytics</button>
+                <button onclick="showTab('config')" id="desk-config" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50">⚙️ Settings</button>
+                <button onclick="showTab('bulk')" id="desk-bulk" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50">🚀 Bulk Tools</button>
+                <button onclick="showTab('links')" id="desk-links" class="w-full text-left p-4 rounded-xl font-bold text-slate-500 hover:bg-slate-50">🔗 Direct Links</button>
+            </nav>
+            <a href="/logout" class="p-4 bg-red-50 text-red-600 rounded-xl text-center font-bold">Logout</a>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 p-4 md:p-8 lg:ml-72">
+            
+            <!-- OVERVIEW TAB -->
+            <div id="overview" class="tab-content active space-y-6">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white p-6 rounded-[25px] shadow-sm border border-slate-100">
+                        <p class="text-slate-400 text-[10px] font-bold uppercase">Links</p>
+                        <h3 class="text-3xl font-black text-slate-900">{len(all_urls)}</h3>
                     </div>
-                    <div class="bg-blue-600 p-8 rounded-[30px] shadow-lg text-white">
-                        <p class="text-blue-200 text-xs font-bold uppercase">Total Clicks</p>
-                        <h3 class="text-4xl font-black">{total_clicks}</h3>
+                    <div class="bg-blue-600 p-6 rounded-[25px] shadow-lg text-white">
+                        <p class="text-blue-200 text-[10px] font-bold uppercase">Clicks</p>
+                        <h3 class="text-3xl font-black">{total_clicks}</h3>
                     </div>
                 </div>
 
-                <!-- CHARTS ROW -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white p-8 rounded-[30px] shadow-sm border border-slate-100">
-                        <h4 class="font-bold text-slate-700 mb-4 text-xs uppercase">Link Growth (7 Days)</h4>
-                        <canvas id="linkChart" height="150"></canvas>
+                <!-- Charts -->
+                <div class="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                    <h4 class="font-bold text-slate-700 mb-4 text-xs uppercase">Growth (7 Days)</h4>
+                    <canvas id="linkChart" height="200"></canvas>
+                </div>
+                
+                <div class="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                    <h4 class="font-bold text-slate-700 mb-4 text-xs uppercase">Traffic Sources</h4>
+                    <canvas id="sourceChart" height="200"></canvas>
+                </div>
+
+                <!-- Recent Links List (Mobile Card Style) -->
+                <div class="space-y-4">
+                    <h4 class="font-bold text-slate-400 text-xs uppercase ml-2">Recent Activities</h4>
+                    {"".join([f'''
+                    <div class="bg-white p-5 rounded-[20px] shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div class="overflow-hidden">
+                            <p class="text-xs font-bold text-slate-400 mb-1">{u['created_at']}</p>
+                            <p class="text-blue-600 font-bold text-sm truncate w-40">/{u['short_code']}</p>
+                        </div>
+                        <div class="bg-slate-100 px-4 py-2 rounded-full font-black text-sm">{u['clicks']}</div>
                     </div>
-                    <div class="bg-white p-8 rounded-[30px] shadow-sm border border-slate-100">
-                        <h4 class="font-bold text-slate-700 mb-4 text-xs uppercase">Traffic Sources (Top 5)</h4>
-                        <canvas id="sourceChart" height="150"></canvas>
-                    </div>
+                    ''' for u in all_urls[:10]])}
                 </div>
             </div>
 
-            <!-- CONFIG -->
+            <!-- CONFIG TAB -->
             <div id="config" class="tab-content space-y-6">
-                <form action="/admin/update" method="POST" class="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    <div class="bg-white p-8 rounded-[30px] shadow-sm space-y-5 border border-slate-100">
-                        <h4 class="font-black text-lg text-slate-900">🎨 Design & Templates (High CTR)</h4>
+                <form action="/admin/update" method="POST" class="space-y-6">
+                    <div class="bg-white p-6 rounded-[30px] shadow-sm space-y-5 border border-slate-100">
+                        <h4 class="font-black text-lg text-slate-900">🎨 App Design</h4>
                         
                         <div class="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                            <label class="text-xs font-bold text-purple-600 mb-2 block uppercase">Ad Page Template</label>
-                            <select name="template_style" class="w-full p-3 bg-white rounded-xl font-bold text-slate-700 border-none outline-none">
-                                <option value="standard" {"selected" if settings.get("template_style")=="standard" else ""}>Standard Timer (Clean)</option>
-                                <option value="video" {"selected" if settings.get("template_style")=="video" else ""}>Fake Video Player (High CTR)</option>
-                                <option value="download" {"selected" if settings.get("template_style")=="download" else ""}>File Download Style (High CTR)</option>
+                            <label class="text-[10px] font-bold text-purple-600 mb-2 block uppercase">Template Style</label>
+                            <select name="template_style" class="w-full bg-white p-3 rounded-xl font-bold text-slate-700 text-sm outline-none">
+                                <option value="standard" {"selected" if settings.get("template_style")=="standard" else ""}>Standard Timer</option>
+                                <option value="video" {"selected" if settings.get("template_style")=="video" else ""}>Fake Video Player</option>
+                                <option value="download" {"selected" if settings.get("template_style")=="download" else ""}>Fake Download</option>
                             </select>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-[10px] font-bold text-slate-400">HOME THEME</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-[10px] font-bold text-slate-400">Home Color</label>
                             <select name="main_theme" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm text-slate-600">{"".join([f'<option value="{o}" {"selected" if settings.get("main_theme")==o else ""}>{o.upper()}</option>' for o in theme_options])}</select></div>
-                            <div><label class="text-[10px] font-bold text-slate-400">STEP THEME</label>
+                            <div><label class="text-[10px] font-bold text-slate-400">Step Color</label>
                             <select name="step_theme" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm text-slate-600">{"".join([f'<option value="{o}" {"selected" if settings.get("step_theme")==o else ""}>{o.upper()}</option>' for o in theme_options])}</select></div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-2 gap-3">
                             <input type="number" name="steps" value="{settings['steps']}" class="p-3 bg-slate-50 rounded-xl text-sm font-bold" placeholder="Steps">
                             <input type="number" name="timer_seconds" value="{settings['timer_seconds']}" class="p-3 bg-slate-50 rounded-xl text-sm font-bold" placeholder="Seconds">
                         </div>
                         <input type="text" name="site_name" value="{settings['site_name']}" class="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm" placeholder="Site Name">
                     </div>
 
-                    <div class="bg-white p-8 rounded-[30px] shadow-sm space-y-4 border border-slate-100">
-                        <h4 class="font-black text-lg text-emerald-600">💰 Scripts & Monetization</h4>
+                    <div class="bg-white p-6 rounded-[30px] shadow-sm space-y-4 border border-slate-100">
+                        <h4 class="font-black text-lg text-emerald-600">💰 Monetization</h4>
                         <input type="number" name="direct_click_limit" value="{settings.get('direct_click_limit', 1)}" class="w-full p-3 bg-blue-50 rounded-xl font-bold text-blue-600 text-sm" placeholder="Clicks Per Session">
                         <textarea name="popunder" placeholder="Popunder JS" class="w-full h-16 p-3 bg-slate-50 rounded-xl text-xs font-mono">{settings['popunder']}</textarea>
                         <textarea name="banner" placeholder="Banner JS" class="w-full h-16 p-3 bg-slate-50 rounded-xl text-xs font-mono">{settings['banner']}</textarea>
-                        <textarea name="social_bar" placeholder="Social Bar JS" class="w-full h-16 p-3 bg-slate-50 rounded-xl text-xs font-mono">{settings['social_bar']}</textarea>
                         <textarea name="native" placeholder="Native JS" class="w-full h-16 p-3 bg-slate-50 rounded-xl text-xs font-mono">{settings['native']}</textarea>
-                        <button class="w-full bg-slate-900 text-white p-4 rounded-2xl font-black shadow-xl hover:scale-[1.02] transition">Save Changes</button>
+                        <button class="w-full bg-slate-900 text-white p-4 rounded-2xl font-black shadow-xl">Save Changes</button>
                     </div>
                 </form>
             </div>
 
-            <!-- BULK TOOLS -->
+            <!-- BULK TAB -->
             <div id="bulk" class="tab-content space-y-6">
-                <div class="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
-                    <h4 class="font-black text-xl text-slate-900 mb-4">🚀 Bulk Link Creator</h4>
-                    <p class="text-sm text-slate-500 mb-6">Paste multiple long URLs (one per line) to shorten them instantly.</p>
+                <div class="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                    <h4 class="font-black text-xl text-slate-900 mb-4">🚀 Bulk Creator</h4>
                     <form action="/admin/bulk_shorten" method="POST">
-                        <textarea name="bulk_urls" class="w-full h-64 p-5 bg-slate-50 rounded-2xl font-mono text-xs border-none outline-none mb-4" placeholder="https://link1.com&#10;https://link2.com&#10;https://link3.com"></textarea>
-                        <button class="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black uppercase shadow-lg hover:bg-blue-700 transition">Shorten All</button>
+                        <textarea name="bulk_urls" class="w-full h-48 p-4 bg-slate-50 rounded-2xl font-mono text-xs border-none outline-none mb-4" placeholder="Paste links here (one per line)"></textarea>
+                        <button class="w-full bg-blue-600 text-white p-4 rounded-2xl font-black uppercase shadow-lg">Shorten All</button>
                     </form>
                 </div>
             </div>
 
-            <!-- DIRECT LINKS -->
+            <!-- LINKS TAB -->
             <div id="links" class="tab-content space-y-6">
-                 <div class="bg-white p-10 rounded-[40px] shadow-sm border border-slate-100">
-                     <h4 class="font-black text-xl text-purple-600 mb-4">🔗 Smart Direct Links (Device & Geo)</h4>
-                     <form action="/admin/add_direct_link" method="POST" class="flex flex-col md:flex-row gap-4 mb-8">
-                        <input type="url" name="direct_link_url" placeholder="Paste Direct Link..." required class="flex-[2] p-4 bg-purple-50 rounded-2xl border-none font-bold text-slate-700 text-sm">
-                        <select name="country" class="flex-1 p-4 bg-purple-50 rounded-2xl border-none font-bold text-slate-700 text-sm">
-                            <option value="Global">🌍 Global</option>
-                            <option value="US">🇺🇸 USA</option>
-                            <option value="GB">🇬🇧 UK</option>
-                            <option value="CA">🇨🇦 Canada</option>
-                            <option value="IN">🇮🇳 India</option>
-                        </select>
-                        <select name="device" class="flex-1 p-4 bg-purple-50 rounded-2xl border-none font-bold text-slate-700 text-sm">
-                            <option value="All">📱 All Devices</option>
-                            <option value="Mobile">📱 Mobile Only</option>
-                            <option value="Desktop">💻 Desktop Only</option>
-                        </select>
-                        <button class="bg-purple-600 text-white px-6 py-4 rounded-2xl font-black uppercase text-sm shadow-md">Add</button>
+                 <div class="bg-white p-6 rounded-[30px] shadow-sm border border-slate-100">
+                     <h4 class="font-black text-xl text-purple-600 mb-4">🔗 Direct Links</h4>
+                     <form action="/admin/add_direct_link" method="POST" class="flex flex-col gap-3 mb-6">
+                        <input type="url" name="direct_link_url" placeholder="Paste Direct Link..." required class="p-4 bg-purple-50 rounded-2xl border-none font-bold text-slate-700 text-sm">
+                        <div class="flex gap-2">
+                            <select name="country" class="flex-1 p-3 bg-purple-50 rounded-2xl border-none font-bold text-slate-700 text-xs">
+                                <option value="Global">🌍 Global</option>
+                                <option value="US">🇺🇸 USA</option>
+                                <option value="GB">🇬🇧 UK</option>
+                            </select>
+                            <select name="device" class="flex-1 p-3 bg-purple-50 rounded-2xl border-none font-bold text-slate-700 text-xs">
+                                <option value="All">📱 All</option>
+                                <option value="Mobile">📱 Mobile</option>
+                                <option value="Desktop">💻 PC</option>
+                            </select>
+                        </div>
+                        <button class="bg-purple-600 text-white p-4 rounded-2xl font-black uppercase text-sm shadow-md">Add Link</button>
                      </form>
 
                      <div class="space-y-3">
                         {"".join([f'''
                         <div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                            <div class="flex flex-col overflow-hidden mr-4">
-                                <span class="text-xs font-mono text-slate-600 truncate">{dl['url']}</span>
-                                <div class="flex gap-2 mt-1">
-                                    <span class="text-[10px] font-black uppercase bg-blue-100 text-blue-600 px-2 py-0.5 rounded">Target: {dl.get('country', 'Global')}</span>
-                                    <span class="text-[10px] font-black uppercase bg-orange-100 text-orange-600 px-2 py-0.5 rounded">Device: {dl.get('device', 'All')}</span>
+                            <div class="flex flex-col overflow-hidden mr-3">
+                                <span class="text-xs font-mono text-slate-600 truncate w-32">{dl['url']}</span>
+                                <div class="flex gap-1 mt-1">
+                                    <span class="text-[9px] font-black uppercase bg-blue-100 text-blue-600 px-1.5 rounded">{dl.get('country', 'Glo')}</span>
+                                    <span class="text-[9px] font-black uppercase bg-orange-100 text-orange-600 px-1.5 rounded">{dl.get('device', 'All')}</span>
                                 </div>
                             </div>
-                            <a href="/admin/delete_direct_link/{dl['_id']}" class="bg-red-100 text-red-600 px-3 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-red-200 transition">Del</a>
+                            <a href="/admin/delete_direct_link/{dl['_id']}" class="bg-red-100 text-red-600 px-3 py-2 rounded-xl text-[10px] font-black hover:bg-red-200">DEL</a>
                         </div>
                         ''' for dl in direct_links])}
                      </div>
@@ -338,32 +343,57 @@ def admin_panel():
             </div>
         </div>
 
+        <!-- MOBILE BOTTOM NAVIGATION (Fixed) -->
+        <div class="lg:hidden fixed bottom-0 w-full bg-white border-t flex justify-around p-3 z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] pb-6">
+            <button onclick="showTab('overview')" id="mob-overview" class="flex flex-col items-center gap-1 active-tab-text text-slate-400">
+                <span class="text-xl">📊</span>
+                <span class="text-[10px] font-bold">Stats</span>
+            </button>
+            <button onclick="showTab('config')" id="mob-config" class="flex flex-col items-center gap-1 text-slate-400">
+                <span class="text-xl">⚙️</span>
+                <span class="text-[10px] font-bold">Settings</span>
+            </button>
+            <button onclick="showTab('bulk')" id="mob-bulk" class="flex flex-col items-center gap-1 text-slate-400">
+                <span class="text-xl">🚀</span>
+                <span class="text-[10px] font-bold">Bulk</span>
+            </button>
+            <button onclick="showTab('links')" id="mob-links" class="flex flex-col items-center gap-1 text-slate-400">
+                <span class="text-xl">🔗</span>
+                <span class="text-[10px] font-bold">Links</span>
+            </button>
+        </div>
+
         <script>
             function showTab(tabId) {{
+                // Hide all tabs
                 document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                // Desktop Sidebar Active State
                 document.querySelectorAll('nav button').forEach(b => b.classList.remove('active-tab'));
+                const deskBtn = document.getElementById('desk-' + tabId);
+                if(deskBtn) deskBtn.classList.add('active-tab');
+
+                // Mobile Bottom Nav Active State
+                document.querySelectorAll('.fixed button').forEach(b => {{
+                    b.classList.remove('text-blue-600');
+                    b.classList.add('text-slate-400');
+                }});
+                const mobBtn = document.getElementById('mob-' + tabId);
+                if(mobBtn) {{
+                    mobBtn.classList.remove('text-slate-400');
+                    mobBtn.classList.add('text-blue-600');
+                }}
+
+                // Show Content
                 document.getElementById(tabId).classList.add('active');
-                document.getElementById('tab-' + tabId + '-btn').classList.add('active-tab');
             }}
             
-            // Link Growth Chart
+            // Charts
             const ctxLink = document.getElementById('linkChart').getContext('2d');
             new Chart(ctxLink, {{ type: 'line', data: {{ labels: {json.dumps(dates)}, datasets: [{{ label: 'Links', data: {json.dumps(chart_data)}, borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', tension: 0.4, fill: true }}] }}, options: {{ responsive: true, plugins: {{ legend: {{ display: false }} }} }} }});
             
-            // Traffic Source Chart
             const ctxSource = document.getElementById('sourceChart').getContext('2d');
-            new Chart(ctxSource, {{
-                type: 'doughnut',
-                data: {{
-                    labels: {json.dumps(source_labels)},
-                    datasets: [{{
-                        data: {json.dumps(source_data)},
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-                        borderWidth: 0
-                    }}]
-                }},
-                options: {{ responsive: true }}
-            }});
+            new Chart(ctxSource, {{ type: 'doughnut', data: {{ labels: {json.dumps(source_labels)}, datasets: [{{ data: {json.dumps(source_data)}, backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'], borderWidth: 0 }}] }}, options: {{ responsive: true, plugins: {{ legend: {{ position: 'bottom' }} }} }} }});
         </script>
     </body></html>
     ''')
@@ -437,16 +467,13 @@ def handle_ad_steps(short_code):
     settings = get_settings()
     url_data = urls_col.find_one({"short_code": short_code})
     
-    # --- [PRO] Smart Targeting & Analytics ---
     user_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     user_country = get_user_country(user_ip)
     user_device = get_user_device() 
     
-    # [ANALYTICS] Capture Traffic Source
     referrer = request.referrer
     traffic_source = get_traffic_source(referrer)
     
-    # Direct Link Selection
     all_links = list(direct_links_col.find({
         "$and": [
             {"$or": [{"country": user_country}, {"country": "Global"}, {"country": {"$exists": False}}]},
@@ -462,7 +489,6 @@ def handle_ad_steps(short_code):
 
     if not url_data: return "404 - Link Not Found", 404
     if step > settings['steps']:
-        # Update Clicks & Traffic Source Analytics in DB
         urls_col.update_one(
             {"short_code": short_code}, 
             {"$inc": {"clicks": 1, f"referrers.{traffic_source}": 1}}
@@ -472,7 +498,6 @@ def handle_ad_steps(short_code):
     tc = COLOR_MAP.get(settings.get('step_theme', 'blue'), COLOR_MAP['blue'])
     template_style = settings.get('template_style', 'standard')
 
-    # --- HTML Templates Logic ---
     main_content = ""
     
     if template_style == 'video':
