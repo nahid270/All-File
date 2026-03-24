@@ -1,0 +1,157 @@
+
+    
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-color: #ffffff; --box-bg: #f9f9f9; --text-main: #1a1a1a; --text-muted: #444; --primary: #6200ea; --accent: #6200ea; --border: #ddd; --btn-grad: linear-gradient(90deg, #6200ea 0%, #b388ff 100%); }
+        body { margin: 0; padding: 0; background: var(--bg-color); }
+        .app-wrapper { font-family: 'Hind Siliguri', sans-serif; background: var(--bg-color); max-width: 600px; margin: 10px auto; padding: 15px; color: var(--text-main); border: 1px solid var(--border); border-radius: 12px; box-sizing: border-box; }
+        
+        .movie-title { font-size: 24px; font-weight: 800; color: var(--accent); text-align: center; margin-bottom: 15px; }
+        
+        .info-container { display: flex; background: var(--box-bg); border-radius: 10px; padding: 12px; gap: 15px; border: 1px solid var(--border); margin-bottom: 15px; }
+        .info-poster img { width: 110px; border-radius: 8px; border: 2px solid var(--border); }
+        .info-text { flex: 1; font-size: 14px; line-height: 1.5; color: var(--text-muted); }
+        .info-text b { color: var(--accent); }
+
+        /* ✅ SMALLER INSTRUCTION CARD */
+        .instruction-card { 
+            background: rgba(255, 255, 255, 0.03); 
+            border: 1px dashed #FFEB3B; 
+            border-radius: 10px; 
+            padding: 12px; 
+            margin: 15px 0; 
+        }
+        .instruction-title { 
+            display: block; 
+            color: #FFEB3B; 
+            font-size: 17px; 
+            font-weight: 700; 
+            text-align: center; 
+            margin-bottom: 10px; 
+        }
+        .step-row { display: flex; align-items: center; margin-bottom: 6px; gap: 10px; }
+        .step-icon { 
+            background: #FFEB3B; color: #000; width: 22px; height: 22px; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0;
+        }
+        .step-desc { font-size: 14px; color: #eee; }
+
+        /* ✅ SMALLER ACTION BUTTONS */
+        .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .btn-main { 
+            padding: 12px 5px; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; 
+            transition: 0.3s; color: #fff; display: flex; justify-content: center; align-items: center; gap: 5px;
+        }
+        .btn-watch-main { background: var(--btn-grad); }
+        .btn-download-main { background: linear-gradient(90deg, #00c853 0%, #64dd17 100%); color: #000; }
+
+        #links-area { display: none; padding-top: 10px; animation: slideUp 0.4s ease; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        .section-title { font-size: 17px; font-weight: bold; color: #fff; margin: 20px 0 10px; border-left: 4px solid var(--primary); padding-left: 10px; }
+        .quality-title { background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; font-size: 15px; font-weight: bold; color: var(--accent); margin: 15px 0 8px; }
+        .server-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+        .final-server-btn { padding: 10px; font-size: 13px; font-weight: 700; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+
+        .embed-container { position: relative; padding-bottom: 56.25%; height: 0; border-radius: 10px; border: 1px solid var(--border); background: #000; overflow: hidden; margin-bottom: 10px; }
+        .embed-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .server-switcher { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; justify-content: center; }
+        .server-tab { background: var(--box-bg); color: #fff; border: 1px solid var(--border); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .server-tab.active { background: var(--primary); border-color: var(--primary); }
+
+        .screenshot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+        .screenshot-grid img { width: 100%; border-radius: 6px; border: 1px solid var(--border); }
+        
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+
+        .nsfw-container { position: relative; cursor: pointer; border-radius: 8px; overflow: hidden; }
+        .nsfw-blur { filter: blur(30px); width: 100%; display: block; }
+        .nsfw-warning { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: #ff5252; padding: 10px; border-radius: 6px; font-size: 14px; text-align: center; border: 1px solid #ff5252; }
+    </style>
+    
+    <div class="app-wrapper">
+        <div id="details-area">
+            <div class="movie-title">K.G.F: Chapter 1 (2018)</div>
+            <div class="info-container">
+                <div class="info-poster"><img src="https://image.tmdb.org/t/p/w500/ltHlJwvxKv7d0ooCiKSAvfwV9tX.jpg" alt="Poster"></div>
+                <div class="info-text">
+                    <div><b>⭐ Rating:</b> 7.5/10</div>
+                    <div><b>🎭 Genre:</b> Action</div>
+                    <div><b>🗣️ Lang:</b> Hindi</div>
+                    <div><b>⏱️ Time:</b> 156 min</div>
+                </div>
+            </div>
+
+            <div class="section-title">📖 Storyline</div>
+            <div style="font-size: 13.5px; line-height: 1.5; color: var(--text-muted); text-align: justify; padding: 0 5px;">
+                A period drama set in the 1970s, KGF follows the story of a fierce rebel who rises against the brutal oppression in Kolar Gold Fields and becomes the symbol of hope to legions of downtrodden people....
+            </div>
+
+            <div class="section-title">🎬 Official Trailer</div><div class="video-container"><iframe src="https://www.youtube.com/embed/3oxo-wacE50" allowfullscreen></iframe></div>
+            <div class="section-title">📸 Movie Screenshots</div><div class="screenshot-grid"><img src="https://image.tmdb.org/t/p/w780/4i1ofsSpfTuswHXcgPtXbZrSnoe.jpg" alt="Screenshot"><img src="https://image.tmdb.org/t/p/w780/n0z49k6qSB9QilogdbMHblUSZxp.jpg" alt="Screenshot"><img src="https://image.tmdb.org/t/p/w780/ymSwo4idOf5RakVNYrD8yXCoy2N.jpg" alt="Screenshot"><img src="https://image.tmdb.org/t/p/w780/kZwxH6BAkVKa2dy0HssKlaMZwEm.jpg" alt="Screenshot"><img src="https://image.tmdb.org/t/p/w780/zis4P7cBDZtUGJUkvJa4fpoZkoq.jpg" alt="Screenshot"><img src="https://image.tmdb.org/t/p/w780/AwAiCEs0fZdRevQW03zYvtZxyRz.jpg" alt="Screenshot"></div>
+
+            <div class="instruction-card">
+                <span class="instruction-title">📥 ডাউনলোড বা অনলাইন নির্দেশিকা:</span>
+                <div class="step-row"><div class="step-icon">১</div><div class="step-desc">যেকোনো বাটনে ক্লিক করুন।</div></div>
+                <div class="step-row"><div class="step-icon">২</div><div class="step-desc">নতুন ট্যাব ওপেন হলে <b>৫ সেকেন্ড</b> অপেক্ষা করুন।</div></div>
+                <div class="step-row"><div class="step-icon">৩</div><div class="step-desc">অ্যাড আসলে ব্যাক বাটন চেপে পুনরায় এখানে আসুন।</div></div>
+            </div>
+
+            <div class="action-btns">
+                <button class="btn-main btn-watch-main" onclick="startUnlock(this)">▶️ WATCH ONLINE</button>
+                <button class="btn-main btn-download-main" onclick="startUnlock(this)">📥 DOWNLOAD LINKS</button>
+            </div>
+            
+            <div style="margin-top:20px; text-align:center;">
+                <a href="https://t.me/+6hvCoblt6CxhZjhl" target="_blank"><img src="https://i.ibb.co/kVfJvhzS/photo-2025-12-23-12-38-56-7587031987190235140.jpg" style="width:100%; max-width:280px; border-radius:10px;"></a>
+            </div>
+        </div>
+
+        <div id="links-area">
+            <div style="text-align:center; color:#00E676; font-size:16px; font-weight:800; margin-bottom:15px;">✅ UNLOCKED SUCCESSFULLY</div>
+            
+            <div class="section-title">📥 Download Servers</div>
+            <div class="server-list-container">
+                <div class="quality-title">📺 Quality: 720p</div>
+<div class="server-grid">
+<button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly9nb2ZpbGUuaW8vZC9JZUZ2Tmo=')" style="background: #2196F3;">▶️ GoFile</button><button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly90Lm1lL1Bvc3RCb3RQcm9ib3Q/c3RhcnQ9Z2V0LTQ4OA==')" style="background: #0088cc;">✈️ Telegram</button><button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly9maWxlZGl0Y2hmaWxlcy5tZS9maWxlLnBocD9mPS9zMjEvaWVzd0djaG9Jd1dYcmd1U2RpR2subXA0')" style="background: #009688;">☁️ FileDitch</button><button class="final-server-btn" onclick="goToLink('aHR0cDovL3RtcGZpbGVzLm9yZy8zMDQ1MjE3MS92aWRlb18yMDI1LTEyLTI3XzEyLTEwLTI2Xzc2MjA4NTEzMDcwMDMyNDg2NTYubXA0')" style="background: #6A1B9A;">🚀 FastLoad</button><button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly9kc3ZwbGF5LmNvbS9lL3Y4bHFwOTlvN2FlZg==')" style="background: #F57C00;">🎬 DoodStream</button><button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly9nb2ZpbGUuaW8vZC9iZFdOTm0=')" style="background: #2196F3;">▶️ GoFile</button><button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly90Lm1lL1Bvc3RCb3RQcm9ib3Q/c3RhcnQ9Z2V0LTQ4OQ==')" style="background: #0088cc;">✈️ Telegram</button><button class="final-server-btn" onclick="goToLink('aHR0cHM6Ly9maWxlZGl0Y2hmaWxlcy5tZS9maWxlLnBocD9mPS9iNzgvc3FjUFNiYUJ6cUxpdGFPdUhqU0MubXA0')" style="background: #009688;">☁️ FileDitch</button><button class="final-server-btn" onclick="goToLink('aHR0cDovL3RtcGZpbGVzLm9yZy8zMDQ1MjE5NC92aWRlb18yMDI1LTEyLTI3XzEyLTEwLTI2Xzc2MjA4NTEzMjg0NzgwODUxMzYubXA0')" style="background: #6A1B9A;">🚀 FastLoad</button></div>
+
+            </div>
+            <div style="text-align:center; margin-top:25px;">
+                <button class="btn-main" onclick="location.reload()" style="background:#333; width:auto; padding:8px 20px; margin: 0 auto;">🔄 Go Back</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    const MY_ADS = ["https://www.effectivegatecpm.com/q5cpmxwy44?key=075b9f116b4174922cadfae2d3291743", "https://www.effectivegatecpm.com/c90zejmfrg?key=45a67d2f1523ee6b3988c4cc8f764a35", "https://www.effectivegatecpm.com/q5cpmxwy44?key=075b9f116b4174922cadfae2d3291743", "https://www.effectivegatecpm.com/jxuaz5zk?key=6faf197d33f98bcb3bc070b020c19664", "https://www.effectivegatecpm.com/q5cpmxwy44?key=075b9f116b4174922cadfae2d3291743", "https://www.effectivegatecpm.com/c90zejmfrg?key=45a67d2f1523ee6b3988c4cc8f764a35", "https://www.effectivegatecpm.com/p4bm30ss3?key=8bb102e9258871570c79a9a90fa3cf9f", "https://www.effectivegatecpm.com/p4bm30ss3?key=8bb102e9258871570c79a9a90fa3cf9f", "https://www.effectivegatecpm.com/c90zejmfrg?key=45a67d2f1523ee6b3988c4cc8f764a35", "https://www.effectivegatecpm.com/jxuaz5zk?key=6faf197d33f98bcb3bc070b020c19664"];
+    function startUnlock(btn) {
+        let ad = MY_ADS[Math.floor(Math.random() * MY_ADS.length)];
+        window.open(ad, '_blank');
+        document.querySelectorAll('.btn-main').forEach(b => b.disabled = true);
+        let count = 5;
+        let timer = setInterval(() => {
+            btn.innerHTML = "⏳ " + count + "s...";
+            count--;
+            if(count < 0) {
+                clearInterval(timer);
+                document.getElementById('details-area').style.display = 'none';
+                document.getElementById('links-area').style.display = 'block';
+                window.scrollTo(0,0);
+            }
+        }, 1000);
+    }
+    function goToLink(b64) { window.location.href = atob(b64); }
+    function changeServer(b64, btn) {
+        document.getElementById('main-embed-player').src = atob(b64);
+        document.querySelectorAll('.server-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+    }
+    function revealNSFW(container) {
+        container.querySelector('.nsfw-blur').style.filter = 'none';
+        container.querySelector('.nsfw-warning').style.display = 'none';
+    }
+    </script>
+    
+    
